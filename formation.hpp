@@ -32,7 +32,11 @@ class drone
 	public:
 		int drone_ID;
 		std::vector<set3d> SET;
+		int collision_num = 0;
+
+		
 		drone(int);
+		
 		// void 给出广播的若干点路径，找出这期间会发生轨迹交叉的飞机ID
 		// void // 输入当前帧，查出当前位置
 		// void export(int frame);			//TODO 给帧数输出对应位置
