@@ -1,9 +1,9 @@
-#ifndef __PLANNING__
-#define __PLANNING__
+// #ifndef __PLANNING__
+// #define __PLANNING__
 
-void planning(void/*/*舞步表*//*丢失的droneID*//*初始位置*//*时间戳*//*飞机各类约束*/);
+// void planning(std::vector<std::vector<set3d>> matrix/*轨迹表*/, int ID/*丢失的droneID*/,vec3d position/*当前位置*/,pps moment/*时间戳*//*飞机各类约束*/);
 
 
-void simu_position();
+// vec3d simu_position();  
 
-#endif
+// #endif
