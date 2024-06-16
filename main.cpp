@@ -2,58 +2,66 @@
 #include <thread>
 #include <vector>
 #include <mutex>
-#include "formation.hpp"
-// #include "planning.hpp"
 #include <iostream>
-#include <thread>
-#include <vector>
 #include <string>
-#include <mutex>
 #include <chrono>
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include "formation.hpp"
+#include "planning.hpp"
+
 // #pragma comment(lib, "Ws2_32.lib")
 // #include <chrono>
 // #include <cstring>
 // #include <sys/socket.h>
 // #include <arpa/inet.h>
-// std::vector<std::vector<set3d>> matrix;         // 初始化时间序列表
+
+int ID;
+vec3d position;
+vec3d output;
+pps moment;
+constraint limit;
+
+void init_target()
+{   
+    ID = 911;                       // SN from 1 instead of 0
+    position = {9.0, 9.0, 9.0};
+    output = {9.0, 9.0, 9.0};
+    moment = {15};                  // 第95帧开始丢
+    // limit.init_position = position;
+    // limit.start_frame = moment;
+
+    // limit = constraint(
+    //     {0.0, 0.0},      // pps start_frame
+    //     {1.0, 2.0, 3.0},   // vec3d init_position
+    //     0,                 // int calcu_times
+    //     0.0,             // double elapsed_time
+    //     6.0,              // double constraint_speed
+    //     0.7,               // double collision_radius
+    //     ALL_DRONE_NUM,                // int ALL_DRONE_NUM
+    //     ACTIVE    // SUCCESS_OR_NOT success
+    // );
+}
+
 set3d view_matrix;
 bool isSorted = false; // 用于指示数据是否已排序
+
 int main() {
 
-    //   // 初始化 Winsock 库
-    // WSADATA wsaData;
-    // int result = WSAStartup(MAKEWORD(2, 2), &wsaData);
-    // if (result != 0) {
-    //     std::cerr << "WSAStartup failed" << std::endl;
-    //     return 1;
-    // }
- 
-    // // 在这里使用 Winsock 的函数进行网络编程
- 
-    // // 关闭 Winsock 库
-    // WSACleanup();
-
+    init_target();
     std::vector<std::vector<set3d>> matrix;         // 初始化时间序列表
     Read_frame(matrix);
-    // std::thread planningThread(planning);
-    // std::thread readThread(Read_frame); 
-    // readThread.join();
-    std::thread socketThread(socketCommunication);
-    for (size_t i = 0; i < 99; i++)
-    {   for (size_t j = 0; j < 1000; j++)
-            {
-                view_matrix = matrix[i][j];
-                std::this_thread::sleep_for(std::chrono::milliseconds(100)); // 模拟排序过程的延迟
-                // printf("series frame: %d, drone: %d\n", i, j);
-            }
-    }
-    isSorted = true; // 标记排序完成
-    extern void socketCommunication(void);
 
+    std::thread socketThread(socketCommunication);
+    std::thread planningThread(planning, matrix, std::ref(ID), std::ref(position), std::ref(output), std::ref(moment), limit);
+    std::thread timeThread(timegoes, std::ref(moment));
+
+
+    
     socketThread.join();
+    planningThread.join();
+    timeThread.join();
+    // planningThread.join();
     
 
     // auto view_matrix = matrix[75][500];

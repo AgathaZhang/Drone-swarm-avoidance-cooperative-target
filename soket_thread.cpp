@@ -10,8 +10,7 @@
 #pragma comment(lib, "Ws2_32.lib")
 
 void socketCommunication() {
-    // extern bool isSorted;           // 声明
-    // extern set3d view_matrix;       // 声明
+
     WSADATA wsaData;
     int iResult;
 
@@ -90,3 +89,29 @@ void socketCommunication() {
     closesocket(server_fd); // 关闭服务器套接字
     WSACleanup(); // 清理 WinSock 库
 }
+
+
+/** 模拟通信过程延迟 */
+// for (size_t i = 0; i < 99; i++)
+// {   for (size_t j = 0; j < 1000; j++)
+//         {
+//             view_matrix = matrix[i][j];
+//             std::this_thread::sleep_for(std::chrono::milliseconds(100)); // 模拟排序过程的延迟
+//             printf("series frame: %d, drone: %d\n", i, j);
+//         }
+// }
+// isSorted = true; // 标记排序完成
+
+
+/** 初始化 Winsock 库 */
+// WSADATA wsaData;
+// int result = WSAStartup(MAKEWORD(2, 2), &wsaData);
+// if (result != 0) {
+//     std::cerr << "WSAStartup failed" << std::endl;
+//     return 1;
+// }
+
+// // 在这里使用 Winsock 的函数进行网络编程
+
+// // 关闭 Winsock 库
+// WSACleanup();
