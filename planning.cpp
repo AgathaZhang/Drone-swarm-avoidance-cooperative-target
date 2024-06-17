@@ -4,22 +4,17 @@
 #include <chrono>
 #include <iostream>
 #include "formation.hpp"
-#include "A_star/AStar.hpp"
+// #include "A_star/AStar.hpp"
+#include "AStar.hpp"
 
-void timegoes(pps& moment) {
-    while (1)
-    {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        moment.frame ++;
-        printf("moment now :%d\n", moment.frame);
-    }
-}
+
 
 // void pilot_phase()
 // {
 //     // 高度始终跟随补位目标舞步帧的高度
 // }
-bool guide = true;
+
+bool NEXT = true;
 vec3d set3dTovec3d(const set3d& v) {
     return vec3d(v.x, v.y, v.z);
 }
@@ -32,18 +27,18 @@ double euclideanDistance(const vec3d& point1, const vec3d& point2) {
     return sqrt(dx + dy + dz);
 }
 
-std::vector<vec3d> segmentVector(const vec3d& start, const vec3d& end, double l) {              // 长距离分段
+std::vector<vec3d> segmentVector(const vec3d& start, const vec3d& end, double l) {              // 长距离分段 l 表示 speed
     
     // auto start_time = std::chrono::high_resolution_clock::now();
     std::vector<vec3d> segments;
     double totalDistance = euclideanDistance(start, end);
     int numSegments = static_cast<int>(std::ceil(totalDistance / l));       // 得到段数
     
-    vec3d direction = { (end.x - start.x) / totalDistance,                  // 斜边满足速度约束 正交边一定满足
+    vec3d direction = { (end.x - start.x) / totalDistance,                  // direction 方向向量 斜边满足速度约束 正交边一定满足
                         (end.y - start.y) / totalDistance,
                         (end.z - start.z) / totalDistance };
     
-    for (int i = 0; i <= numSegments; ++i) {
+    for (int i = 1/*0包含初始点1不包含*/; i <= numSegments; ++i) {                                // TODO 分段向量超出速度约束的部分 不用再做计算
         vec3d segment = { start.x + direction.x * l * i,
                           start.y + direction.y * l * i,
                           start.z + direction.z * l * i };
@@ -70,17 +65,37 @@ void planning(const std::vector<std::vector<set3d>> matrix/*轨迹表*/, int& ID
 {   
     while (1)       // 配位成功的Flag
     {    
-        if (guide)
+        if (NEXT)
         {   
-            unsigned int frame = moment.frame;
+            unsigned int frame = moment.frame;                // 获取当前时间
             set3d target = matrix[frame-1][ID-1];             // step1 获取补位飞机当前位置
             auto vector_seg = segmentVector(position, SET3D_TO_VEC3D(target), limit.constraint_speed);        // 向量分段
+            AStar::Generator generator;             // 定义了一个generator类
+            generator.setWorldSize({25, 25});       // 设置世界地图大小
+            // generator.addCollision({3,3});
+            // generator.addCollision({3,4});
+            // generator.setHeuristic(AStar::Heuristic::euclidean);        // 设置启发函数为欧几里得
+            // generator.setDiagonalMovement(true);                        // 设置对角元素
+
+            // std::cout << "Generate path ... \n";
+            // auto path = generator.findPath({0, 0}, {20, 20});           // 输出路径
+
+            // for(auto& coordinate : path) {
+            //     std::cout << coordinate.x << " " << coordinate.y << "\n";
+            // }
 
 
+
+
+
+            // 取前面一段 正交在x y 平面
+            // if (abs(output.z - target.z)< 0.5){NEXT = 0;}
             // planning_seg_one/*先导段*/(const std::vector<vec3d>);
+            // output = vec3d(position.x, position.y, target.z);
+            printf("stop here");
         }
         else 
-        {
+        {   printf("enter the planning!!!!");
             
         }
         

@@ -21,13 +21,14 @@ vec3d position;
 vec3d output;
 pps moment;
 constraint limit;
-
+vec3d virtual_posi;
 void init_target()
 {   
     ID = 911;                       // SN from 1 instead of 0
     position = {9.0, 9.0, 9.0};
     output = {9.0, 9.0, 9.0};
     moment = {15};                  // 第95帧开始丢
+    virtual_posi = {9.0, 9.0, 9.0};
     // limit.init_position = position;
     // limit.start_frame = moment;
 
@@ -53,8 +54,9 @@ int main() {
     Read_frame(matrix);
 
     std::thread socketThread(socketCommunication);
-    std::thread planningThread(planning, matrix, std::ref(ID), std::ref(position), std::ref(output), std::ref(moment), limit);
+    std::thread planningThread(planning, matrix, std::ref(ID), std::ref(position), std::ref(output), std::ref(moment), limit);      // 输入当前位置 时间 输出期望位置
     std::thread timeThread(timegoes, std::ref(moment));
+    // std::thread VirtualdroneThread(Virtual_location, const vec3d& guide, vec3d& virtual_posi, const pps& moment, const constraint limit);
 
 
     
