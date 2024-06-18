@@ -20,6 +20,10 @@ namespace AStar
         friend Vec2i operator + (const AStar::Vec2i& left_, const AStar::Vec2i& right_) {
             return{ left_.x + right_.x, left_.y + right_.y };
         }
+        // 默认构造函数
+        Vec2i() : x(0), y(0) {}
+        // 带参构造函数
+        Vec2i(int x_val, int y_val) : x(x_val), y(y_val) {}
     };
 
     using uint = unsigned int;

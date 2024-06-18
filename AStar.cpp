@@ -146,10 +146,10 @@ void AStar::Generator::releaseNodes(NodeSet& nodes_)
     }
 }
 
-bool AStar::Generator::detectCollision(Vec2i coordinates_)
+bool AStar::Generator::detectCollision(Vec2i coordinates_)                          // TODO 修改以针对负象限的情况
 {
-    if (coordinates_.x < 0 || coordinates_.x >= worldSize.x ||
-        coordinates_.y < 0 || coordinates_.y >= worldSize.y ||                      // TODO 实数化,进某天范数球即为碰撞
+    if (coordinates_.x <= (-worldSize.x) || coordinates_.x >= worldSize.x ||
+        coordinates_.y <= (-worldSize.y) || coordinates_.y >= worldSize.y ||                      // TODO 实数化,进某个范数球即为碰撞
         std::find(walls.begin(), walls.end(), coordinates_) != walls.end()) {       // 找到重叠,返回一个指向找到元素的迭代器,否则返回 walls.end() 思考：只有一个值的时候直接指向walls.end()
         return true;
     }

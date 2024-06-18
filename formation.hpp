@@ -31,6 +31,39 @@ struct vec3d {
 	vec3d() : x(0), y(0), z(0) {}
     // 带参构造函数
     vec3d(double x_val, double y_val = 0, double z_val = 0) : x(x_val), y(y_val), z(z_val) {}
+
+	// 运算符+重载
+    vec3d operator+(const vec3d& other) const {
+        return vec3d(x + other.x, y + other.y, z + other.z);
+    }
+
+    // 运算符-重载
+    vec3d operator-(const vec3d& other) const {
+        return vec3d(x - other.x, y - other.y, z - other.z);
+    }
+
+};
+
+typedef struct vec2d vec2d;
+struct vec2d {
+    double x;
+    double y;
+
+    // 默认构造函数
+    vec2d() : x(0), y(0) {}
+
+    // 带参构造函数
+    vec2d(double x_val, double y_val = 0) : x(x_val), y(y_val) {}
+
+    // 运算符+重载
+    vec2d operator+(const vec2d& other) const {
+        return vec2d(x + other.x, y + other.y);
+    }
+
+    // 运算符-重载
+    vec2d operator-(const vec2d& other) const {
+        return vec2d(x - other.x, y - other.y);
+    }
 };
 
 typedef struct set3d set3d;
@@ -44,6 +77,19 @@ struct set3d {
     // 带参构造函数
    set3d(double x_val, double y_val = 0, double z_val = 0, unsigned int frame_val = 0)
         : x(x_val), y(y_val), z(z_val), frame(frame_val) {}
+};
+
+typedef struct Mint Mint;
+struct Mint {
+	int x;
+	int y;
+	int z;
+};
+
+typedef struct Mint2D Mint2D;
+struct Mint2D {
+	int x;
+	int y;
 };
 
 typedef struct constraint
@@ -102,6 +148,7 @@ class drone
 		// void 加入激活函数 回退路径甚至是原地等待，随舞步缓慢移动
 		// void 有可能飞行表演已经结束了还没补到位 这个情况要大致估算一下是否可以释放出发
 		// void 尽量让指导向量的频率与帧速率一致 可以采用归一化分配的思维 映射加插值 顺便做一个贝塞尔平滑
+		// void 若下一时刻已经到来，上次的路径向量还没算完 这时候要锁止还是丢弃 丢弃：用最新的 设置一个cicalbuffer算到哪里存到哪里 最好不用全部算完
 		// TODO 最主要的时间开销是在寻机,比较舞步帧,计算范围和快速规划上 
 
 

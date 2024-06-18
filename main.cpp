@@ -18,17 +18,20 @@
 
 int ID;
 vec3d position;
-vec3d output;
+std::vector<vec3d> output;
 pps moment;
 constraint limit;
 vec3d virtual_posi;
 void init_target()
 {   
     ID = 911;                       // SN from 1 instead of 0
-    position = {9.0, 9.0, 9.0};
-    output = {9.0, 9.0, 9.0};
+    // position = {9.0, 9.0, 9.0};
+    // output = {9.0, 9.0, 9.0};
+    position = {0.9, 30, 326};
+    output = {0.9, 30, 326};
     moment = {15};                  // 第95帧开始丢
-    virtual_posi = {9.0, 9.0, 9.0};
+    // virtual_posi = {9.0, 9.0, 9.0};
+    virtual_posi = {0.9, 30, 326};
     // limit.init_position = position;
     // limit.start_frame = moment;
 
