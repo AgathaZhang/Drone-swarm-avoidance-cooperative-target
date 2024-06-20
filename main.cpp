@@ -2,9 +2,9 @@
 #include <thread>
 #include <vector>
 #include <mutex>
-#include <iostream>
 #include <string>
 #include <chrono>
+#include <condition_variable>
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include "formation.hpp"
@@ -15,20 +15,25 @@
 // #include <cstring>
 // #include <sys/socket.h>
 // #include <arpa/inet.h>
+std::mutex mtx_position;                    // 互斥锁
+std::condition_variable cv;                 // 线程信号
 
 int ID;
-vec3d position;
-std::vector<vec3d> output;
+// vec3d position;
+std::vector<vec3d> guide;
 pps moment;
 constraint limit;
 vec3d virtual_posi;
+bool guide_finish = false;
+
 void init_target()
 {   
     ID = 911;                       // SN from 1 instead of 0
     // position = {9.0, 9.0, 9.0};
-    // output = {9.0, 9.0, 9.0};
-    position = {0.9, 30, 326};
-    output = {0.9, 30, 326};
+    // guide = {9.0, 9.0, 9.0};
+    // position = {0.9, 30, 326};
+    guide = {0.9, 30, 326};
+    guide.resize(0);
     moment = {15};                  // 第95帧开始丢
     // virtual_posi = {9.0, 9.0, 9.0};
     virtual_posi = {0.9, 30, 326};
@@ -57,17 +62,16 @@ int main() {
     Read_frame(matrix);
 
     std::thread socketThread(socketCommunication);
-    std::thread planningThread(planning, matrix, std::ref(ID), std::ref(position), std::ref(output), std::ref(moment), limit);      // 输入当前位置 时间 输出期望位置
     std::thread timeThread(timegoes, std::ref(moment));
-    // std::thread VirtualdroneThread(Virtual_location, const vec3d& guide, vec3d& virtual_posi, const pps& moment, const constraint limit);
+    std::thread planningThread(planning, matrix, std::ref(ID), std::ref(virtual_posi), std::ref(guide), std::ref(moment), limit);      // 输入当前位置 时间 输出期望位置
+    std::thread VirtualdroneThread(Virtual_location, std::ref(guide), std::ref(virtual_posi), std::ref(moment), limit);
 
 
     
     socketThread.join();
-    planningThread.join();
     timeThread.join();
-    // planningThread.join();
-    
+    planningThread.join();
+    VirtualdroneThread.join();
 
     // auto view_matrix = matrix[75][500];
     printf("Finish planning");

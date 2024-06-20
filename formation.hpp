@@ -7,7 +7,7 @@ extern int start_frame;				// 开始补位动作帧
 extern double constraint_speed;		// 速度约束
 extern double collision_radius;		// 避碰半径
 extern int ALL_DRONE_NUM;			// 飞机总数
-extern bool guide;
+// extern bool guide;
 
 typedef enum{
 	YES = 1,		// 补位完成
@@ -96,21 +96,23 @@ typedef struct constraint
 {
 // pps start_frame;				// 开始补位动作帧
 // vec3d init_position;			// 起始位置
-double pixels;
+double pixels;					// guide向量的步长分辨率
+double framerate;				// 帧速率
 // int calcu_times;				// 累计插值次数
 // double elapsed_time;			// 累计时间
-double constraint_speed;		// 速度约束
-// double collision_radius;		// 避碰半径
+double constraint_speed;		// 合成最大速度约束
+double collision_radius;		// 避碰半径
 // int ALL_DRONE_NUM;				// 飞机总数
 // SUCCESS_OR_NOT success;					// 是否补位成功
 constraint()
         : /*start_frame{0},*/					// 约束里面不该出现变化的东西 不该出现起始时间
         //   init_position{0, 0, 0},
-		  pixels{0.2},
+		  pixels{0.1},
+		  framerate{30},
         //   calcu_times(0),
         //   elapsed_time(0.0),
-          constraint_speed{3.0}
-        //   collision_radius(0.0),
+          constraint_speed{3.0},
+          collision_radius{0.2}
         //   ALL_DRONE_NUM(0),
         //   success(2) 
 		{}
@@ -150,6 +152,18 @@ class drone
 		// void 尽量让指导向量的频率与帧速率一致 可以采用归一化分配的思维 映射加插值 顺便做一个贝塞尔平滑
 		// void 若下一时刻已经到来，上次的路径向量还没算完 这时候要锁止还是丢弃 丢弃：用最新的 设置一个cicalbuffer算到哪里存到哪里 最好不用全部算完
 		// TODO 最主要的时间开销是在寻机,比较舞步帧,计算范围和快速规划上 
+		// 不需要全部路径生成完毕 有多少生成就给多少 但是这个要在Astar库里面改
+		// 每次生成轨迹只用判断 速度约束 之内的就可以 太远的不用放进来
+		// 如果在途中 不亮灯 设置亮灯信号
+		// 互斥锁考虑只锁当前坐标 不锁时间
+		// 添加避碰半径0.3，可以调节
+		// 远景规划 如果障碍过多 变线过于频繁 那就进入 超局部规划 或者 停顿 或者 激活函数
+		// 可以试一下停在原处 自动规避 
+		// 查找Z轴不满足速度约束的问题
+		// mapping的时候要加入int16 尽量满足硬件的原始优化
+		// 我这边给Unity 的Virtualdrone轨迹要按帧给 给planning的position要按2f(20cm)冗余量，实际中 往后算30frame
+		// 1frame = 33ms  5frame = 165ms;
+
 
 
 };
