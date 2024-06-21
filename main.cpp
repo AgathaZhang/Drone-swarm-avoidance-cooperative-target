@@ -15,7 +15,7 @@
 // #include <cstring>
 // #include <sys/socket.h>
 // #include <arpa/inet.h>
-std::mutex mtx_position;                    // 互斥锁
+std::mutex mtx_output;                    // 互斥锁
 std::condition_variable cv;                 // 线程信号
 
 int ID;
@@ -24,7 +24,7 @@ std::vector<vec3d> guide;
 pps moment;
 constraint limit;
 vec3d virtual_posi;
-bool guide_finish = false;
+bool guide_finish = true;
 
 void init_target()
 {   
@@ -56,7 +56,7 @@ set3d view_matrix;
 bool isSorted = false; // 用于指示数据是否已排序
 
 int main() {
-
+    // Guide_vector guide;
     init_target();
     std::vector<std::vector<set3d>> matrix;         // 初始化时间序列表
     Read_frame(matrix);
@@ -71,7 +71,7 @@ int main() {
     socketThread.join();
     timeThread.join();
     planningThread.join();
-    VirtualdroneThread.join();
+    // VirtualdroneThread.join();
 
     // auto view_matrix = matrix[75][500];
     printf("Finish planning");

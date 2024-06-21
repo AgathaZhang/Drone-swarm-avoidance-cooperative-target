@@ -2,6 +2,7 @@
 #define __FORMATION__
 // #pragma once
 #include <vector>
+#include <cmath>
 
 extern int start_frame;				// 开始补位动作帧
 extern double constraint_speed;		// 速度约束
@@ -20,6 +21,7 @@ typedef struct pps pps;
 struct pps{
 	// double time;
 	unsigned int frame;
+	pps(unsigned int f = 0) : frame(f) {} // 带默认值的构造函数
 };
 
 typedef struct vec3d vec3d;		//指导结果向量
@@ -40,6 +42,10 @@ struct vec3d {
     // 运算符-重载
     vec3d operator-(const vec3d& other) const {
         return vec3d(x - other.x, y - other.y, z - other.z);
+    }
+
+	double Euler_dis(void) const {
+        return std::sqrt(x * x + y * y + z * z);
     }
 
 };

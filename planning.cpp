@@ -84,6 +84,12 @@ double euclideanDistance(const vec3d& point1, const vec3d& point2) {
     return sqrt(dx + dy + dz);
 }
 
+double manhattanDistance(const vec3d& point1, const vec3d& point2) {
+    double dx = fabs(point1.x - point2.x);
+    double dy = fabs(point1.y - point2.y);
+    double dz = fabs(point1.z - point2.z);
+    return dx + dy + dz;
+}
 // AStar::Vec2i vec2dToVec2I(const vec2d& v) {
 //     return AStar::Vec2i(v.x, v.y);
 // }
@@ -97,7 +103,7 @@ std::vector<vec3d> segmentVector(const vec3d& start, const vec3d& end, double l)
     
     // auto start_time = std::chrono::high_resolution_clock::now();
     std::vector<vec3d> segments;
-    double totalDistance = euclideanDistance(start, end);
+    double totalDistance = euclideanDistance(start, end);                   // 因为涉及到速度约束 这里似乎只能用欧拉距离了
     int numSegments = static_cast<int>(std::ceil(totalDistance / l));       // 得到段数
     
     vec3d direction = { (end.x - start.x) / totalDistance,                  // direction 方向向量 斜边满足速度约束 正交边一定满足
@@ -127,30 +133,25 @@ std::vector<vec3d> segmentVector(const vec3d& start, const vec3d& end, double l)
 
 // }
 
-void planning(const std::vector<std::vector<set3d>> matrix/*轨迹表*/, int& ID/*丢失的droneID*/, vec3d& position/*当前位置*/, std::vector<vec3d>& output/*输出位置*/, const pps& moment/*时间戳*/, constraint limit/*飞机各类约束*/)
+void planning(const std::vector<std::vector<set3d>> matrix/*轨迹表*/, int& ID/*丢失的droneID*/,const vec3d& origin_position/*当前位置*/, std::vector<vec3d>& output/*输出指导向量*/, const pps& origin_moment/*时间戳*/, constraint limit/*飞机各类约束*/)
 {   
-        // static pps save_moment = {0};   // 初始化静态变量
-        // static int receive_same_momenttimes = 0; // 初始化计数器
 
-        // if (save_moment.frame != moment.frame && guide_finish == true) {
-        // receive_same_momenttimes = 0;
-        // save_moment.frame = moment.frame;}
     extern bool guide_finish;
-    guide_finish = false;
-    // extern std::mutex mtx_position;
-    // mtx_position.lock();
-    AStar::Vec2i zero = {0, 0};
-    // while (1)       // 配位成功的Flag
-    // {   
-        // std::unique_lock<std::mutex> lock(mtx_position);
-        auto start_time = std::chrono::high_resolution_clock::now(); // 记录开始时间
-        if (NEXT)
+    
+    AStar::Vec2i zero = {0, 0};         // 填洞避碰 扩增初始化
+    while (guide_finish == true)        // 计算完成 || 超时 || 无解 其他情况丢给异常处理线程
+    {   guide_finish = false;           // 清空标志位
+        const vec3d position = origin_position;
+        const pps moment = origin_moment;
+        auto start_time = std::chrono::high_resolution_clock::now();                                            // 记录开始时间用于测算单次路径规划的耗时
+
+        if (NEXT)       // 正常完成计算时进入 否则进入else
         {   
             unsigned int frame = moment.frame;                                                                  // 获取当前时间
             set3d target = matrix[frame-1][ID-1];                                                               // 获取补位飞机当前位置
             auto vector_seg = segmentVector(position, SET3D_TO_VEC3D(target), limit.constraint_speed);          // 向量分段 <vec3d> vector_seg (不包含0位置)
             vec3d increment = vector_seg[1] - position;                                                         // 取增量   <vec3d> increment  (往后看一个点)
-            Mint guide_target = QUANTIZATION_MAPPING_3D(increment);   // 输入一个vec3d的数据 输出一个实数       // 量化映射 <Mint> x y z
+            Mint guide_target = QUANTIZATION_MAPPING_3D(increment);                                             // 输入一个 vec3d的数据 量化映射到 <Mint> x y z
             AStar::Vec2i guide_target_final = Mint2DToVec2I(MintToMin2D(guide_target));
             // step1 起点终点小数已知 √
             // step2 起点终点映射整数(要考虑舞步也要映射成整数 舞步尺度与我的尺度要相同 舞步的全局坐标要转到我0象归一化坐标)
@@ -160,24 +161,24 @@ void planning(const std::vector<std::vector<set3d>> matrix/*轨迹表*/, int& ID
             // TODO 好像并没有比较高度层
 
 
-            AStar::Generator generator;                 // 定义了一个generator类
-            generator.setWorldSize({200, 200});         // 设置世界地图大小
-            // std::vector<Mint2D> wall;                   // 声明墙
-            // std::vector<AStar::Vec2i> hole = EXPAND_MAPPING_2Dvec(limit.collision_radius);                      // 设置安全区
+            AStar::Generator generator;                                                                             // 定义了一个generator类
+            generator.setWorldSize({200, 200});                                                                     // 设置世界地图大小
+            // std::vector<Mint2D> wall;                                                                            // 声明墙
+            // std::vector<AStar::Vec2i> hole = EXPAND_MAPPING_2Dvec(limit.collision_radius);                       // 设置安全区
             // auto hole_area = hole.size();
-            for (size_t i = 0; i < 60; i++)             // todo 向后找多少帧  60帧
+            for (size_t i = 0; i < 60; i++)             // TODO 向后找多少帧 60帧 这里根据速度约束在单次计算的平均时间开销来推断,尽量的小,避免时序上过长 wall堵塞造成无解的情况
             {   
                 for (size_t j = 0; j < ALL_DRONE_NUM; j++)      // 检查看看是不是所有飞机都遍历到了
                 {
                     vec3d dyschronism = SET3D_TO_VEC3D(matrix[frame-1+i][j]);                                    // 时间上找到障碍帧
-                    if (5 > (euclideanDistance(position, dyschronism)))                                          // TODO 欧拉距离改成曼哈顿距离 帧筛选 这里设置规避的障碍半径 这里的 8 应该用速度约束来控
+                    if (5 > (manhattanDistance(position, dyschronism)))                                          // 找当前位置相邻范围 TODO 06.21待讨论 思考：用曼哈顿距离 后 会不会引入更多的 非同层点的投影 以此影响有解的可能性 曼哈顿距离和欧拉距离的适用场景 欧拉距离改成曼哈顿距离 帧筛选 这里设置规避的障碍半径 这里的 8 应该用速度约束来控
                     // wall.push_back(VEC3D_TO_VEC2D(dyschronism - position));                                   // 这里可以优化的是 不用把方向向量的负球面的那些向量也纳入进来占用遍历时间
                     {//wall.push_back(QUANTIZATION_MAPPING_2D(VEC3D_TO_VEC2D(dyschronism - position)));
                     //  generator.addCollision(VEC2D_TO_VEC2I(QUANTIZATION_MAPPING_2D(VEC3D_TO_VEC2D(dyschronism - position))));
                     // 目标位置不能和障碍是同一个
                     auto Box = Mint2DToVec2I(/*2小数变整Mint2D */QUANTIZATION_MAPPING_2D(/*1直接找出2D障碍小数位置*/VEC3D_TO_VEC2D(dyschronism - position)));   // 与曼哈顿距离合写减少开销
                     // 首尾离得很近的怎么办 去首 去尾
-                    if (Box == guide_target_final || Box == zero) continue;        // 屏蔽此刻 始末 位置有飞机占位
+                    if (Box == guide_target_final || Box == zero) continue;                                      // 屏蔽此刻 始末 位置有飞机占位
                     else {
                         // 这里万一有一个点和0,0离得很近堵死了，答案是不会 因为象限可以四面八方 这是质点的情况 如果扩展成hole那就可能把开始点围起来
                         // 上下左右拓展
@@ -205,19 +206,23 @@ void planning(const std::vector<std::vector<set3d>> matrix/*轨迹表*/, int& ID
             std::cout << "Generate path ... \n";
             // auto vewA = Mint2DToVec2I(MintToMin2D(guide_target));
             auto path = generator.findPath({0, 0}, (guide_target_final));               // 库输出路径
-            std::reverse(path.begin(), path.end());
+            std::reverse(path.begin(), path.end());                                     // 反向vector还可以继续优化计算开销
             // std::vector<vec3d> path_vec3d;                                           // 对路径反浮点化
             auto max_point = path.size();
             auto perch = increment.z/max_point;
-            for (size_t i = 0; i < max_point; i++)
-            {   vec3d temp;
-                temp.x = position.x + (INVERMAPPING(path[i])).x;
-                temp.y = position.y + (INVERMAPPING(path[i])).y;
-                temp.z = position.z + perch*i;                                          // 添加对应的 z 补齐成三维
-                output.push_back(temp);                     
-            }
-            
-            // 思考未来时刻frame z 上的碰撞
+            {   extern std::mutex mtx_output;
+                // mtx_output.lock();
+                std::unique_lock<std::mutex> lock(mtx_output);
+                for (size_t i = 0; i < max_point; i++)
+                {   vec3d temp;
+                    temp.x = position.x + (INVERMAPPING(path[i])).x;
+                    temp.y = position.y + (INVERMAPPING(path[i])).y;
+                    temp.z = position.z + perch*i;                                          // 添加对应的 z 补齐成三维
+                    output.push_back(temp);                                                 // 思考未来时刻frame z 上的碰撞
+                }
+                // mtx_output.unlock();
+            }   // `lock` 在这里作用域结束自动解锁
+                                                                        
             for(auto& coordinate : output/*path_vec3d*/) {
                 std::cout << coordinate.x << " " << coordinate.y << " " << coordinate.z << "\n";
             }
@@ -249,13 +254,13 @@ void planning(const std::vector<std::vector<set3d>> matrix/*轨迹表*/, int& ID
         
         // 根据获取的当前时间,和丢失ID,推演跟踪时间
         // 生成全局方位向量
+    
     auto end_time = std::chrono::high_resolution_clock::now(); // 记录结束时间
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time); // 计算持续时间
     std::cout << "Function execution time: " << duration.count() << " milliseconds" << std::endl;
-    // }
-    guide_finish = true;
 
-    // mtx_position.unlock();
+    }
+    guide_finish = true;        // 置计算成功标志位
 }
 
 
