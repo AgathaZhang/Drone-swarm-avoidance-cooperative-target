@@ -43,6 +43,16 @@ struct vec3d {
     vec3d operator-(const vec3d& other) const {
         return vec3d(x - other.x, y - other.y, z - other.z);
     }
+	
+	// == 运算符重载
+    bool operator==(const vec3d& other) const {
+        return x == other.x && y == other.y && z == other.z;
+    }
+
+    // != 运算符重载
+    bool operator!=(const vec3d& other) const {
+        return !(*this == other);
+    }
 
 	double Euler_dis(void) const {
         return std::sqrt(x * x + y * y + z * z);

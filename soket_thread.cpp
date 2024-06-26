@@ -7,10 +7,14 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include "formation.hpp"
+
 #pragma comment(lib, "Ws2_32.lib")
 
 void socketCommunication() {
-
+    extern int ID;
+    extern pps moment;
+    extern vec3d virtual_posi;
+    extern std::mutex mtx_position;
     WSADATA wsaData;
     int iResult;
 
@@ -76,13 +80,16 @@ void socketCommunication() {
     }
 
     while (true) {
-        // std::lock_guard<std::mutex> lock(dataMutex); // 使用互斥锁保护共享数据
-        std::string status = "Current view_matrix: ";
-        status += std::to_string(view_matrix.x) + " " + std::to_string(view_matrix.y) + " " + std::to_string(view_matrix.z);
-        status += isSorted ? " Sorted" : " Sorting";
+        
+        std::string status = "Current frame & posi : ";
+        status += "droneID:" + std::to_string(ID) + "frame:" + std::to_string(moment.frame) + " x: " + std::to_string(virtual_posi.x) + " y: " + std::to_string(virtual_posi.y) + " z: " + std::to_string(virtual_posi.z);
+        // status += isSorted ? " Sorted" : " Sorting";
+        mtx_position.lock();
         send(new_socket, status.c_str(), status.size(), 0); // 发送状态信息到客户端
-        // std::this_thread::sleep_for(std::chrono::seconds(2)); // 每秒发送一次
+        mtx_position.unlock();
+        std::this_thread::sleep_for(std::chrono::milliseconds(5)); // 每秒发送一次
         // if (isSorted) break;
+        // std::cout << "New position :" << moment.frame << " f "<< virtual_posi.x << " " << virtual_posi.y << " " << virtual_posi.z << "\n";
     }
 
     closesocket(new_socket); // 关闭客户端套接字

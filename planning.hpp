@@ -19,16 +19,22 @@ public:
         guide = new_guide;
         moment = new_moment;
     }
-
+    // 读取函数
+    std::pair<std::vector<vec3d>, pps> read() const {
+        std::lock_guard<std::mutex> lock(mtx);
+        return {guide, moment};
+    }
 private:
-    std::mutex mtx; // 保护更新操作的互斥锁
+    mutable std::mutex mtx; // 保护更新操作的互斥锁
 };
 
 
 
-void planning(const std::vector<std::vector<set3d>> matrix/*轨迹表*/, int& ID/*丢失的droneID*/,const vec3d& position/*当前位置*/, std::vector<vec3d>& output/*输出位置*/, const pps& moment/*时间戳*/, constraint limit/*飞机各类约束*/);
+
+void planning(const std::vector<std::vector<set3d>> matrix/*轨迹表*/, int& ID/*丢失的droneID*/,const vec3d& position/*当前位置*/, Guide_vector& /*输出位置*/, const pps& moment/*时间戳*/, constraint limit/*飞机各类约束*/);
 void timegoes(pps& moment);
-void Virtual_location(const std::vector<vec3d>& guide, vec3d& virtual_posi, const pps& moment, const constraint limit);    // 虚拟位置 速度乘以指导向量 = 实际位置 速度用的是打卡速度 
+void Virtual_location(const Guide_vector&, vec3d& virtual_posi, const pps& moment, const constraint limit);    // 虚拟位置 速度乘以指导向量 = 实际位置 速度用的是打卡速度 
+void monitor(const vec3d& virtual_posi);
 vec3d simu_position();  
 
 #endif
