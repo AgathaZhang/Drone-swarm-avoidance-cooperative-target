@@ -36,9 +36,9 @@ bool position_update = true;                    // 位置已更新
 void init_target()
 {   
     // ID = 911;                       // SN from 1 instead of 0
-    ID = 863;
-    moment = {150};                  // 第95帧开始丢
-    virtual_posi = {0, 0, 0};
+    ID = 5;
+    moment = {10};                  // 第95帧开始丢
+    virtual_posi = {7, 23, 335};
     // virtual_posi = {-160, 70, 150};
 }
 
