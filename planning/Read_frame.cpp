@@ -94,7 +94,6 @@ public:
             return position;
         }
 
-        // Read the pos[3] values (3 floats)
         printf("FD_num is %d \n", fileDescriptors_[index]);
         uint8_t read_dance_buf[1024];
         float pos[3];
@@ -112,17 +111,17 @@ public:
         //     std::cerr << "Failed to read position data or incomplete read" << std::endl;
         //     return position;
         // }
-        AES_ECB_decrypt_buffer(&ctx, read_dance_buf/*read_dance_buf*/, sizeof(read_dance_buf)/*buf length*/);
+        // AES_ECB_decrypt_buffer(&ctx, read_dance_buf/*read_dance_buf*/, sizeof(read_dance_buf)/*buf length*/);
         printf("------------------------------------------- \n\n\n"); 
 
-        for (int i = 0; i < 1024; ++i) {
-        printf("%02x ", read_dance_buf[i]);
-        if ((i + 1) % 16 == 0) {
-            printf("\n"); // 每行打印16个字节
-        }
-    }
+    //     for (int i = 0; i < 1024; ++i) {
+    //     printf("%02x ", read_dance_buf[i]);
+    //     if ((i + 1) % 16 == 0) {
+    //         printf("\n"); // 每行打印16个字节
+    //     }
+    // }
         // AES_ECB_decrypt_buffer(&ctx, reinterpret_cast<unsigned char*>(pos)/*read_dance_buf*/, sizeof(pos)/*buf length*/);
-        memcpy(pos, read_dance_buf + 1, sizeof(float) * 3);
+        memcpy(pos, read_dance_buf + 4, sizeof(float) * 3);
 
         // Debugging: Print raw bytes read
         std::cout << "Raw bytes read:\n";
@@ -132,11 +131,37 @@ public:
         }
         std::cout << std::endl;
 
+        uint32_t result = 0;
+        // for (float item: pos)
+        for(int i = 0; i < 3; i++)
+        {
+            //    char* temp = reinterpret_cast<char*>(pos)[i];
+            char* temp = ((char*)pos) + i*4;
+            // uint32_t hexValue = 0;
+            // for (int j = 0; j < 4; j++) {
+            //     hexValue = (hexValue << 8) | static_cast<uint8_t>(*(temp + j));
+            // }
+
+            // // 将10进制值重新写回temp指向的内存
+            // for (int j = 0; j < 4; j++) {
+            //     *(temp + j) = (hexValue >> (8 * (3 - j))) & 0xFF;
+            // }
+
+            for (int i = 0; i < 4; i++)
+            {
+            result = (result << 8) | *(temp+i);
+            }
+            printf("show %d\n",result);
+        }
+        
+        
         // Convert to vector for returning
         position[0] = pos[0];
         position[1] = pos[1];
         position[2] = pos[2];
-        
+        printf("num_x %f\n",position[0]);
+        printf("num_y %f\n",position[1]);
+        printf("num_z %f\n",position[2]);
         return position;
     }
     // ssize_t writeToFile(int index, const char* buffer, size_t count) {
