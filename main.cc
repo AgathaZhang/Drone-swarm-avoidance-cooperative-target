@@ -6,11 +6,11 @@
 #include <chrono>
 #include <condition_variable>
 // #include <winsock2.h>
-// #include <ws2tcpip.h>             // && 临时注释
+// #include <ws2tcpip.h>             // && 临时注释 linux上需要修改此项为兼容的库
 // #include <sys/socket.h>           // && 临时注释
 // #include <arpa/inet.h>
-#include "planning/formation.hpp"
-// #include "planning.hpp"
+#include "covering_algorithm/formation.hpp"
+#include "covering_algorithm/planning.hpp"
 // #pragma comment(lib, "Ws2_32.lib")
 
 std::mutex mtx_position;                        // position 位置数据锁
@@ -26,30 +26,40 @@ pps moment;                                     // 实时帧
 constraint limit;                               // 约束
 vec3d virtual_posi;                             // 虚拟位置
 std::vector<vec3d> guide;                       // 指导向量
-// Guide_vector guider;                            // 封装 指导相邻 & 该向量生成基于的实时帧 && 临时注释
+Guide_vector guider;                            // 封装 指导相邻 & 该向量生成基于的实时帧
 bool guide_finish = true;                       // 路径输出完成标志
 set3d view_matrix;                              // 测试soket用到
 bool isSorted = false;                          // 测试soket用到 用于指示数据是否已排序
 bool position_update = true;                    // 位置已更新
 std::vector<vec3d> guide_soket;                 // 传输预测轨迹
-
+// CircularQueue* queue = nullptr;                 // 初始化循环队列
+CircularQueue queue(300);
 void init_target()
 {   
     // ID = 911;                       // SN from 1 instead of 0
     ID = 5;
-    moment = {10};                  // 第95帧开始丢
+    moment = {95};                  // 第95帧开始丢
     virtual_posi = {0, 0, 0};
     // virtual_posi = {7, 23, 335};
     // virtual_posi = {-160, 70, 150};
+    // queue = new CircularQueue(300); // 动态分配
     // printf("SUCCESS init\n");
 }
 int main(){
     
     init_target();
-
-    // std::vector<std::vector<set3d>> matrix;         // 初始化时间序列表
-    // Read_frame(matrix);                             //&& 这里需要根据当前帧选择 临时Read_frame的sdcard区域
-    Read_frame(0/*帧序*/);
+    // std::vector<std::vector<set3d>> matrix;              // 初始化时间序列表
+    // std::thread app_mavlink(mavlink);
+    std::thread timeThread(timegoes, std::ref(moment));
+    std::thread loader(loadInCycque, std::ref(moment), std::ref(queue));
+    // std::thread planningThread(planning, matrix, std::ref(ID), std::ref(virtual_posi), std::ref(guider), std::ref(moment), limit);      // 输入当前位置 时间 输出期望位置
+    
+    timeThread.join();
+    loader.join();
+    // planningThread.join();
+    
     printf("SUCCESS Finished planning\n");
+    // delete queue; queue = nullptr;
     return 0;
 }
+
