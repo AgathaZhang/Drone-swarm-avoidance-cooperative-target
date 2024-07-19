@@ -1,5 +1,6 @@
 
 #include "formation.hpp"
+#include <thread>
 
 int start_frame = 25;				// 开始补位动作帧
 double constraint_speed = 6;		// 速度约束
@@ -43,9 +44,8 @@ FileDescriptorManager::~FileDescriptorManager() {
 set3d FileDescriptorManager::getFramePosition(int index/*架次*/, const pps& frame/*, AES_ctx& ctx*/) {
         
         // printf("FD_num is %d \n", fileDescriptors_[index]);
-        static pps innner_frame = frame;
         set3d position;
-        off_t offset_origin = (innner_frame.frame) * 22 + 46 + 1;                // 设置偏移
+        off_t offset_origin = (frame.frame) * 22 + 46 + 1;                // 设置偏移
         // off_t offset_origin = 0;
         // off_t offset = 46 + (frame - 1) * 22 + 1; // 46-byte header, 22-byte frame, +1 for stx
 
@@ -56,7 +56,8 @@ set3d FileDescriptorManager::getFramePosition(int index/*架次*/, const pps& fr
         /** 读取块*/
         float pos[3];
         ssize_t bytesRead = pread(fileDescriptors_[index], reinterpret_cast<char*>(pos), sizeof(pos), offset_origin);
-        // if (bytesRead != sizeof(pos)) {std::cerr << "incomplete read" << std::endl;return position;}
+        // printf("bytesRead: %zd \n", bytesRead);
+        if (bytesRead != sizeof(pos)) {std::cerr << "incomplete read" << std::endl;return position;}
 
         // /** 打印源数据*/printf("------------------------------------------- origin hex data\n"); 
         // for (int i = 0; i < 1024; ++i) {
@@ -70,20 +71,20 @@ set3d FileDescriptorManager::getFramePosition(int index/*架次*/, const pps& fr
         // AES_ECB_decrypt_buffer(&ctx, reinterpret_cast<unsigned char*>(pos)/*read_dance_buf*/, sizeof(pos)/*buf length*/);
 
         /** Debugging: Print raw bytes read*/
-        std::cout << "Raw bytes read:\n";
-        for (size_t i = 0; i < sizeof(pos); ++i) {
-            printf("%02x ", reinterpret_cast<unsigned char*>(pos)[i]);
-        }std::cout << std::endl;
+        // std::cout << "Raw bytes read:\n";
+        // for (size_t i = 0; i < sizeof(pos); ++i) {
+        //     printf("%02x ", reinterpret_cast<unsigned char*>(pos)[i]);
+        // }std::cout << std::endl;
 
-        // Convert to vector for returning
+        /** Convert to vector for returning*/
         position.x = pos[0];
         position.y = pos[1];
         position.z = pos[2];
-        position.frame = innner_frame.frame;
-        printf("num_x %f\n",position.x);
-        printf("num_y %f\n",position.y);
-        printf("num_z %f\n",position.z);
-        printf("num_frame %d\n",position.frame);
+        position.frame = frame.frame;       // 注意这里的帧偏移是从0序开始的
+        // printf("num_x %f\n",position.x);
+        // printf("num_y %f\n",position.y);
+        // printf("num_z %f\n",position.z);
+        // printf("num_frame %d\n",position.frame);
         return position;
     }
 
@@ -118,6 +119,9 @@ bool CircularQueue::dequeue(std::vector<set3d> & item) {
     }
 
 bool CircularQueue::isFull() const {
+        // static int num = 0;
+        // num++;
+        // printf("YES is full: num %d\n", num);
         std::unique_lock<std::mutex> lock(mutex_);
         return count_ == size_;
     }
@@ -137,10 +141,10 @@ drone::drone(int id) {                                                      // D
 // AES_ctx ctx;
 // AES_init_ctx(&ctx, encript_key);
 
-std::vector<set3d> Read_frame(const pps& frame, FileDescriptorManager manager) {
+std::vector<set3d> Read_frame(const pps& frame, FileDescriptorManager& manager) {
 
     std::vector<set3d> current_sequence;
-
+    // set3d position = manager.getFramePosition(4, frame);  // 单架fd测试
     for (size_t i = 0; i < manager.capacity; i++)
     {
         set3d position = manager.getFramePosition(i, frame);
@@ -153,7 +157,7 @@ std::vector<set3d> Read_frame(const pps& frame, FileDescriptorManager manager) {
 
 
 void loadInCycque(const pps& first_moment, CircularQueue& queue) {                  // 循环队列装载线程 根据first_moment加上帧号
-
+    static pps inner_frame = first_moment;
     FileDescriptorManager manager;                                                  // 初始化FD管理器对象
     // if (!manager.initialize("/mnt/sdcard/Dac_data")) {                           // 初始化板载路径
     if (!manager.initialize("../Dac_data")) {
@@ -163,22 +167,28 @@ void loadInCycque(const pps& first_moment, CircularQueue& queue) {              
     manager.listFiles();
 
     while (true)
-    {
-        std::vector<set3d> current_sequence = Read_frame(first_moment, manager);
-        queue.enqueue(current_sequence);
+    {   
+        std::vector<set3d> current_sequence = Read_frame(inner_frame, manager);    // TODO manager改为引用传递 读出单个序列
+        if (!queue.isFull())
+        {
+            queue.enqueue(current_sequence);                                        // 每个序列添加到队列
+        }
+        inner_frame.frame++;
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
-
 }
 
 // 消耗线程函数
-// void processData(CircularQueue& queue) {
-//     while (true) {
-//         DataBlock data;
-//         queue.dequeue(data);
-
-//         // 处理数据
-//         std::cout << "Processing data at offset " << data.offset
-//                   << " with coordinates (" << data.x << ", " << data.y << ", " << data.z << ")" << std::endl;
-//     }
-// }
+void consumeInCycque(CircularQueue& queue) {
+    while (true) {
+        std::vector<set3d> data;
+        queue.dequeue(data);
+        auto view = data.size();printf("size current sequence: %d \n", view);
+        set3d single_data = data[5];
+        // 处理数据
+        std::cout << "Processing data at offset " << single_data.frame
+                  << " with coordinates (" << single_data.x << ", " << single_data.y << ", " << single_data.z << ")" << std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    }
+}
 

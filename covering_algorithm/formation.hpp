@@ -237,13 +237,13 @@ private:
 // extern CircularQueue queue;
 void loadInCycque(const pps& first_moment/*初始读写偏移*/, CircularQueue& queue/*循环队列*/);
 void processData(CircularQueue& queue);
-std::vector<set3d> Read_frame(pps& frame/*帧序*/, FileDescriptorManager manager/*文件管理器*/);
+std::vector<set3d> Read_frame(const pps& frame/*帧序*/, FileDescriptorManager& manager/*文件管理器*/);
 void time_series_map(std::vector<std::vector<set3d>>&, const std::vector<drone>);
 extern void socketCommunication(void);
 extern std::vector<std::vector<set3d>> matrix;  
 extern set3d view_matrix;  
 extern bool isSorted;
-
+void consumeInCycque(CircularQueue& queue); //测试消费线程
 #endif
 
 

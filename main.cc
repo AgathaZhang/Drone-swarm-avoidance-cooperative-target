@@ -38,7 +38,7 @@ void init_target()
 {   
     // ID = 911;                       // SN from 1 instead of 0
     ID = 5;
-    moment = {95};                  // 第95帧开始丢
+    moment = {5095};                  // 第95帧开始丢
     virtual_posi = {0, 0, 0};
     // virtual_posi = {7, 23, 335};
     // virtual_posi = {-160, 70, 150};
@@ -52,10 +52,13 @@ int main(){
     // std::thread app_mavlink(mavlink);
     std::thread timeThread(timegoes, std::ref(moment));
     std::thread loader(loadInCycque, std::ref(moment), std::ref(queue));
+    std::thread consume(consumeInCycque, std::ref(queue));
+    
     // std::thread planningThread(planning, matrix, std::ref(ID), std::ref(virtual_posi), std::ref(guider), std::ref(moment), limit);      // 输入当前位置 时间 输出期望位置
     
     timeThread.join();
     loader.join();
+    consume.join();
     // planningThread.join();
     
     printf("SUCCESS Finished planning\n");
