@@ -215,21 +215,29 @@ private:
     std::vector<std::string> fileNames_;
 };
 
-class CircularQueue{
+class CircularQueue {
 public:
-	CircularQueue(size_t size);
-	bool enqueue(const std::vector<set3d>&);
-	bool dequeue(std::vector<set3d>& item);
-	bool isFull() const;
-	bool isEmpty() const;
+    CircularQueue(size_t size);
+    bool enqueue(const std::vector<set3d>&);
+    bool dequeue(std::vector<set3d>& item, size_t sequence);		// 读取最后一个序列
+    bool dequeue(size_t sequence); // 重载版本
+    bool isFull() const;
+    bool isEmpty() const;
+	set3d invoking(size_t sequence, size_t index); 					// 访问以front开始的若干帧 内部调用方法
+    int atomicity = 1; // atomicity==1的时候才能dequeue，这是为了路径规划算法途中的原子性，避免基于当前位置帧访问的未来若干帧的sequence数据发生错位，即，基于当前帧却用到了未来帧的障碍物
+	void prt_count(void){printf("count : %d \n", count_);}
+	size_t buffer_count_(void){return count_;}
+
 private:
-	size_t size_;       // 容量
-	size_t front_;      // 头指针
-	size_t tail_;       // 尾指针
-	size_t count_;      // 计数
-	std::vector<std::vector<set3d>> queue_;
-	mutable std::mutex mutex_;
-	std::condition_variable cv_;
+    size_t size_;       // 容量
+    size_t front_;      // 头指针
+    size_t tail_;       // 尾指针
+    size_t count_;      // 计数
+    std::vector<std::vector<set3d>> queue_;
+    mutable std::mutex mutex_enqueue_dequeue_;  // 用于 enqueue 和 dequeue 的互斥锁
+    mutable std::mutex mutex_dequeue_invoking_; // 用于 dequeue 和 invoking 的互斥锁
+    std::condition_variable cv_;
+    
 };
 
 // void Read_frame(std::vector<std::vector<set3d>>&);			// old declar
@@ -243,7 +251,8 @@ extern void socketCommunication(void);
 extern std::vector<std::vector<set3d>> matrix;  
 extern set3d view_matrix;  
 extern bool isSorted;
-void consumeInCycque(CircularQueue& queue); //测试消费线程
+void consumeInCycque(const pps& first_moment, CircularQueue& queue); // 剔除旧帧线程函数
+// void consumeInCycque(CircularQueue& queue); //测试消费线程
 #endif
 
 

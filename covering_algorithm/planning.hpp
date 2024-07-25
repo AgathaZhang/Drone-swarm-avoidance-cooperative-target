@@ -4,6 +4,7 @@
 #include "formation.hpp"
 #include "AStar.hpp"
 #include <mutex>
+#include "algorithmmng.h"
 
 class Guide_vector {
 public:
@@ -32,7 +33,7 @@ private:
 
 
 
-void planning(const std::vector<std::vector<set3d>> matrix/*轨迹表*/, int& ID/*丢失的droneID*/,const vec3d& position/*当前位置*/, Guide_vector& /*输出位置*/, const pps& moment/*时间戳*/, constraint limit/*飞机各类约束*/);
+void planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失的droneID*/,const vec3d& position/*当前位置*/, Guide_vector& /*输出位置*/, const pps& moment/*时间戳*/, constraint limit/*飞机各类约束*/, AlgorithmMng &am);
 void timegoes(pps& moment);
 void Virtual_location(const Guide_vector&, vec3d& virtual_posi, const pps& moment, const constraint limit);    // 虚拟位置 速度乘以指导向量 = 实际位置 速度用的是打卡速度 
 // void monitor(const vec3d& virtual_posi);

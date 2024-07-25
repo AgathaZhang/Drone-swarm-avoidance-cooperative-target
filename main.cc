@@ -12,6 +12,8 @@
 #include "covering_algorithm/formation.hpp"
 #include "covering_algorithm/planning.hpp"
 // #pragma comment(lib, "Ws2_32.lib")
+#include "algorithmmng.h"
+
 
 std::mutex mtx_position;                        // position 位置数据锁
 std::mutex mtx_guide_soket;                     // 预测向量锁(弃用)
@@ -34,10 +36,12 @@ bool position_update = true;                    // 位置已更新
 std::vector<vec3d> guide_soket;                 // 传输预测轨迹
 // CircularQueue* queue = nullptr;                 // 初始化循环队列
 CircularQueue queue(300);
+
+
 void init_target()
 {   
     // ID = 911;                       // SN from 1 instead of 0
-    ID = 5;
+    ID = 19;
     moment = {5095};                  // 第95帧开始丢
     virtual_posi = {0, 0, 0};
     // virtual_posi = {7, 23, 335};
@@ -48,18 +52,26 @@ void init_target()
 int main(){
     
     init_target();
+    AlgorithmMng am;
     // std::vector<std::vector<set3d>> matrix;              // 初始化时间序列表
     // std::thread app_mavlink(mavlink);
+
     std::thread timeThread(timegoes, std::ref(moment));
-    std::thread loader(loadInCycque, std::ref(moment), std::ref(queue));
-    std::thread consume(consumeInCycque, std::ref(queue));
-    
-    // std::thread planningThread(planning, matrix, std::ref(ID), std::ref(virtual_posi), std::ref(guider), std::ref(moment), limit);      // 输入当前位置 时间 输出期望位置
+    std::thread loader(loadInCycque, std::ref(moment), std::ref(queue));    // queue.dequeue(first_moment.frame);
+    std::thread tube(&AlgorithmMng::start, &am);
+    // std::thread consume(consumeInCycque, std::ref(moment), std::ref(queue));                      // 子线程用于剔除旧帧
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));       // 给点时间让ram装载
+    // std::thread consume(consumeInCycque, std::ref(queue));
+    std::thread planningThread(planning, std::ref(queue), std::ref(ID), std::ref(virtual_posi), std::ref(guider), std::ref(moment), limit, ref(am));      // 输入当前位置 时间 输出期望位置
+    std::thread VirtualdroneThread(Virtual_location, std::ref(guider), std::ref(virtual_posi), std::ref(moment), limit);
     
     timeThread.join();
     loader.join();
-    consume.join();
-    // planningThread.join();
+    tube.join();
+    // consume.join();
+    planningThread.join();
+    VirtualdroneThread.join();
     
     printf("SUCCESS Finished planning\n");
     // delete queue; queue = nullptr;

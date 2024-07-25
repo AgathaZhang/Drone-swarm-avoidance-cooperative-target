@@ -8,13 +8,14 @@
 #include "formation.hpp"
 #include "AStar.hpp"
 #include "planning.hpp"
+#include "algorithmmng.h"
 
 void timegoes(pps& moment) {
     while (1)
     {   extern vec3d output;
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));         // 模拟每帧的实际时间 33ms
+        std::this_thread::sleep_for(std::chrono::milliseconds(33));         // 模拟每帧的实际时间 33ms
         moment.frame ++;
-        printf("moment now :%d\n", moment.frame);
+        // printf("moment now :%d\n", moment.frame);
         // printf("guide_vec now :x %f\n, y %f\n, z %f\n", output.x, output.x, output.z);
     }
 }
@@ -125,8 +126,8 @@ void Virtual_location(const Guide_vector& origin_guide/*当前指导向量*/, ve
             else break;     // 防止空路径 不更新跳不出循环
             if (virtual_posi != old_virtual_posi)break;                 // TODO 超时也跳出
         }
-
-            std::cout << "New position :" << moment.frame << " f "<< virtual_posi.x << " " << virtual_posi.y << " " << virtual_posi.z << "\n";
+            
+            std::cout << "New position time:" << moment.frame << " pos: "<< virtual_posi.x << " " << virtual_posi.y << " " << virtual_posi.z << "\n";
             // cv.notify_one();
             // monitor(virtual_posi);// 已经在新开线程中检测 这里不需要显示调用 virtual_posi 不改变 那么把planning线程挂起
             // changed(virtual_posi);
