@@ -5,6 +5,7 @@
 #include <string>
 #include <chrono>
 #include <condition_variable>
+#include <cstdlib>
 // #include <winsock2.h>
 // #include <ws2tcpip.h>             // && 临时注释 linux上需要修改此项为兼容的库
 // #include <sys/socket.h>           // && 临时注释
@@ -40,6 +41,12 @@ CircularQueue queue(300);
 
 void init_target()
 {   
+    // int result = system("/root/sethost.sh");
+    // // int result = system("/root/test_zwz.sh");
+    // if (result == 0) {printf("Make shell OTG host init success\n");}    // shell脚本成功执行
+    // else {printf("Fail to shell OTG host\n");}                          // shell脚本执行失败
+    // std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
     // ID = 911;                       // SN from 1 instead of 0
     ID = 19;
     moment = {5095};                  // 第95帧开始丢
@@ -53,12 +60,14 @@ int main(){
     
     init_target();
     AlgorithmMng am;
+    am.start();
+
     // std::vector<std::vector<set3d>> matrix;              // 初始化时间序列表
     // std::thread app_mavlink(mavlink);
 
     std::thread timeThread(timegoes, std::ref(moment));
     std::thread loader(loadInCycque, std::ref(moment), std::ref(queue));    // queue.dequeue(first_moment.frame);
-    std::thread tube(&AlgorithmMng::start, &am);
+    // std::thread tube(&AlgorithmMng::start, &am);
     // std::thread consume(consumeInCycque, std::ref(moment), std::ref(queue));                      // 子线程用于剔除旧帧
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));       // 给点时间让ram装载
@@ -68,13 +77,16 @@ int main(){
     
     timeThread.join();
     loader.join();
-    tube.join();
+    // tube.join();
     // consume.join();
     planningThread.join();
     VirtualdroneThread.join();
     
     printf("SUCCESS Finished planning\n");
     // delete queue; queue = nullptr;
+
+    am.stop();
+
     return 0;
 }
 

@@ -11,6 +11,7 @@
 #include "mavlink_msg_formation_cmd.h"
 #include "mavlink_msg_statustext.h"
 #include "motionfusion/sensfusion.h"
+#include "mavlink_msg_auto_filling_dance.h"     // 补位新加协议
 
 
 class AlgorithmMng {
@@ -22,8 +23,9 @@ public:
     void start();
     void stop();
 
-    void sendToPc(const char* data, int len);                       // 上发函数
-    // void sendQrPosition(__mavlink_qrcode_t *msg);
+    void sendToPc(const char* data, int len);                       // 上发adb函数
+    void sendQrPosition(__mavlink_qrcode_t *msg);
+    void send_planningPosition(mavlink_auto_filling_dance_t *msg);  // 补位算法发送期望位置
     void onMavlinkMessage(const mavlink_message_t *message);        // 回调函数 TODO 待修改
     void handleMsgFromDrone(mavlink_message_t *msg);
 

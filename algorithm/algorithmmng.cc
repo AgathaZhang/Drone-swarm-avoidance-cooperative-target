@@ -28,15 +28,15 @@ AlgorithmMng::AlgorithmMng()
 
 AlgorithmMng::~AlgorithmMng() 
 {
-	IMUDEV_Close(mImuDevFd);
+	// IMUDEV_Close(mImuDevFd);
 }
 
 void AlgorithmMng::start() {
 	// mImuStatus = true;
     // mImuThread = std::thread(std::bind(&AlgorithmMng::ImuThread, this));
 
-	// mDroneStatus = true;
-    // mDroneThread = std::thread(std::bind(&AlgorithmMng::DroneThread, this));
+	mDroneStatus = true;
+    mDroneThread = std::thread(std::bind(&AlgorithmMng::DroneThread, this));
  
     // mCalAccThreadStatus = true;
     // mCalAccThread = std::thread(std::bind(&AlgorithmMng::CalAccThread, this));
@@ -50,8 +50,8 @@ void AlgorithmMng::start() {
 }
 
 void AlgorithmMng::stop() {
-    mImuStatus = false;
-    mImuThread.join();
+    // mImuStatus = false;
+    // mImuThread.join();
 
     mDroneStatus = false;
     mDroneThread.join();
@@ -265,6 +265,13 @@ void  AlgorithmMng::onMavlinkMessage(const mavlink_message_t *msg)
             }
             break;
         }
+        case MAVLINK_MSG_ID_auto_filling_dance:
+        {   
+            printf("recev !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+            mavlink_auto_filling_dance_t dance_cmd;
+            mavlink_msg_auto_filling_dance_decode(msg, &dance_cmd);
+
+        }//TODO 
 		default :
 			break;
 	}	
@@ -281,51 +288,35 @@ void AlgorithmMng::DroneThread()
     mavlink_status_t status;
     mavlink_message_t msg;
 
-	int mDroneDevFd = -1;
 	mDroneDevFd = uart_open("/dev/ttyACM0", 460800);
-	if (mDroneDevFd == -1) 
-    {
-		printf("open drone_uart[/dev/ttyACM0] err\n");
+	if (mDroneDevFd == -1) {
+		printf("open drone_uart[/dev/ttyACM0] err");
 		return;
 	}
-    FD_ZERO(&fd_read);
-    FD_SET(mDroneDevFd, &fd_read);
-    printf("DroneThread run\n");
-    while(mDroneStatus)
-    {
-        printf("uart_send run\n");
-
-        uart_send(mDroneDevFd, dd, 18);
-
-        usleep(2000*1000);
-    }
 
 	while(mDroneStatus)
 	{
-        timeout.tv_sec = 3;
-        timeout.tv_usec = 0;
+        FD_ZERO(&fd_read);
+        FD_SET(mDroneDevFd, &fd_read);
+        timeout.tv_sec = 3;//0;
+        timeout.tv_usec = 0;//200000; //200ms
+
         ret = select(mDroneDevFd+1, &fd_read, NULL, NULL, &timeout);
-        if (ret < 0) 
-        {
-            printf("drone_uart[/dev/ttyACM0] select err...\n");
-        } 
-        else if (ret == 0) 
-        {
+        if (ret < 0) {
+            printf("drone_uart[/dev/ttyACM0] select err...");
+        } else if (ret == 0) {
             //SPDLOG_INFO("drone_uart[/dev/ttyS4] not connected...");
             //SendMsgAckToApp(MAV_PLANE_CMD_DEVINFO, 0, CMD_ERR);
-			printf("drone_uart[/dev/ttyACM0] not connected...\n");
+			printf("drone_uart[/dev/ttyACM0] not connected...");
 			uart_send(mDroneDevFd, dd, 18);
-		} 
-        else 
-        {
-			if (FD_ISSET(mDroneDevFd, &fd_read) > 0 ) 
-            {
+		} else {
+
+			if ( FD_ISSET(mDroneDevFd, &fd_read) > 0 ) {
 				int s_ret = read(mDroneDevFd, mavlink_data, 256);
 				//printf("%d \n", s_ret);               
-				for (int i=0; i<s_ret; i++) 
-                {
-					if (mavlink_parse_char(MAVLINK_COMM_0, mavlink_data[i], &msg, &status)) 
-                    {
+
+				for (int i=0; i<s_ret; i++) {
+					if ( mavlink_parse_char(MAVLINK_COMM_0, mavlink_data[i], &msg, &status) ) {
 						handleMsgFromDrone(&msg);
 					}
 				}
@@ -359,14 +350,34 @@ void AlgorithmMng::handleMsgFromDrone(mavlink_message_t *msg)
 	}	
 }
 
-// void AlgorithmMng::sendQrPosition(__mavlink_qrcode_t *msg)
-// {
-//     mavlink_message_t mavlink;
-// 	uint8_t buf[MAVLINK_MAX_PAYLOAD_LEN];
-//     uint16_t buf_size;
+void AlgorithmMng::sendQrPosition(__mavlink_qrcode_t *msg)
+{
+    mavlink_message_t mavlink;
+	uint8_t buf[MAVLINK_MAX_PAYLOAD_LEN];
+    uint16_t buf_size;
 	
-// 	mavlink_msg_qrcode_encode(0, 0, &mavlink, msg);
-// 	buf_size = mavlink_msg_to_send_buffer(buf, &mavlink);
+	mavlink_msg_qrcode_encode(0, 0, &mavlink, msg);
+	buf_size = mavlink_msg_to_send_buffer(buf, &mavlink);
 
-// 	uart_send(mDroneDevFd, buf, buf_size);
-// }
+	uart_send(mDroneDevFd, buf, buf_size);
+}
+
+/**  float x;  
+float y; 
+float z; 
+uint32_t frame; 
+uint8_t reserved[5]; 
+mavlink_auto_filling_dance_t;
+*/
+
+void AlgorithmMng::send_planningPosition(mavlink_auto_filling_dance_t *msg)
+{
+    mavlink_message_t mavlink;
+	uint8_t buf[MAVLINK_MAX_PAYLOAD_LEN];
+    uint16_t buf_size;
+	
+	mavlink_msg_bwcode_encode(0, 0, &mavlink, msg);
+	buf_size = mavlink_msg_to_send_buffer(buf, &mavlink);
+    uart_send(mDroneDevFd, buf, buf_size);
+	// mAdbServer->send(reinterpret_cast<const char*>(buf), static_cast<int>(buf_size));
+}
