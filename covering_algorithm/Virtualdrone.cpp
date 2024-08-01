@@ -20,6 +20,19 @@ void timegoes(pps& moment) {
     }
 }
 
+void receive(AlgorithmMng& am) {
+    while (true)
+    {   
+        mavlink_message_t msg;
+        // mavlink_message_t rc;
+        // am.onMavlinkMessage(&rc);
+        am.handleMsgFromDrone(&msg);
+        std::this_thread::sleep_for(std::chrono::milliseconds(300)); 
+    }
+    
+
+}
+
 // void changed(const vec3d& virtual_posi){
 //     extern bool yes_change;
 //     auto last_param_value = virtual_posi;
@@ -71,9 +84,11 @@ void Virtual_location(const Guide_vector& origin_guide/*当前指导向量*/, ve
         // if (save_moment.frame != moment.frame && guide_finish == true) {
         //     receive_same_momenttimes = 0;
         //     save_moment.frame = moment.frame;
-
+        auto start = std::chrono::high_resolution_clock::now();
     while (true) // 一直更新
-    {   bool changed = true;
+    {   static int printcount = 0;
+        printcount++;
+        bool changed = true;
         // std::this_thread::sleep_for(std::chrono::milliseconds(33));                                             // 按帧时长更新Virtualdrone
         vec3d old_virtual_posi;                                                                                 // 当前驻点
         std::vector<vec3d> guide;                                                                               // 屏蔽外部guide向量在改变
@@ -126,8 +141,13 @@ void Virtual_location(const Guide_vector& origin_guide/*当前指导向量*/, ve
             else break;     // 防止空路径 不更新跳不出循环
             if (virtual_posi != old_virtual_posi)break;                 // TODO 超时也跳出
         }
-            
-            std::cout << "New position time:" << moment.frame << " pos: "<< virtual_posi.x << " " << virtual_posi.y << " " << virtual_posi.z << "\n";
+            auto now = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> elapsed = now - start;
+
+            if (elapsed.count() >= 2.0) {
+            std::cout << "New position time: " << moment.frame << " pos: "<< virtual_posi.x << " " << virtual_posi.y << " " << virtual_posi.z << "\n";
+            start = now; // 重置计时器
+}
             // cv.notify_one();
             // monitor(virtual_posi);// 已经在新开线程中检测 这里不需要显示调用 virtual_posi 不改变 那么把planning线程挂起
             // changed(virtual_posi);

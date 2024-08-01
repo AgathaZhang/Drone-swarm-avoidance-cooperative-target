@@ -236,7 +236,7 @@ void AlgorithmMng::ImuThread()
 
 //adb串口的回调函数
 void  AlgorithmMng::onMavlinkMessage(const mavlink_message_t *msg)
-{
+{   
 	switch (msg->msgid)
 	{
 		case MAVLINK_MSG_ID_REPORT_STATS:
@@ -265,13 +265,7 @@ void  AlgorithmMng::onMavlinkMessage(const mavlink_message_t *msg)
             }
             break;
         }
-        case MAVLINK_MSG_ID_auto_filling_dance:
-        {   
-            printf("recev !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-            mavlink_auto_filling_dance_t dance_cmd;
-            mavlink_msg_auto_filling_dance_decode(msg, &dance_cmd);
 
-        }//TODO 
 		default :
 			break;
 	}	
@@ -328,7 +322,7 @@ void AlgorithmMng::DroneThread()
 }
 
 void AlgorithmMng::handleMsgFromDrone(mavlink_message_t *msg)
-{
+{   printf("Listen mavlink!!!!!!!!\n");
 	switch (msg->msgid)
 	{
 		case MAVLINK_MSG_ID_REPORT_STATS:
@@ -345,6 +339,14 @@ void AlgorithmMng::handleMsgFromDrone(mavlink_message_t *msg)
 			//printf("ground_distance = %d\n", atti.ground_distance);
 			break;	
 		}
+        
+        case MAVLINK_MSG_ID_auto_filling_dance:
+        {   
+            mavlink_auto_filling_dance_t dance_cmd;
+            mavlink_msg_auto_filling_dance_decode(msg, &dance_cmd);
+            printf("x:  %f,y:  %fz:  %f\n",dance_cmd.x,dance_cmd.y,dance_cmd.z);
+
+        }//TODO 
 		default :
 			break;
 	}	

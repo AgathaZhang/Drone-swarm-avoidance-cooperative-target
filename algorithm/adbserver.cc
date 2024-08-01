@@ -55,7 +55,6 @@ void AdbServer::onMessage(const Network::TcpConnectionPtr &conn,Network::DataBuf
     //printf("msgBuffer size %d\n",msgBuffer.size());
 
     int msg_size = buf->readableBytes();
-
     memcpy(msg, buf->peek(), msg_size);
 
     for (int i=0; i<msg_size; i++) {

@@ -67,6 +67,7 @@ int main(){
 
     std::thread timeThread(timegoes, std::ref(moment));
     std::thread loader(loadInCycque, std::ref(moment), std::ref(queue));    // queue.dequeue(first_moment.frame);
+    std::thread receiveThread(receive, ref(am));
     // std::thread tube(&AlgorithmMng::start, &am);
     // std::thread consume(consumeInCycque, std::ref(moment), std::ref(queue));                      // 子线程用于剔除旧帧
 
@@ -77,6 +78,7 @@ int main(){
     
     timeThread.join();
     loader.join();
+    receiveThread.join();
     // tube.join();
     // consume.join();
     planningThread.join();

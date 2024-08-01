@@ -31,7 +31,7 @@ private:
 };
 
 
-
+void receive(AlgorithmMng& am);
 
 void planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失的droneID*/,const vec3d& position/*当前位置*/, Guide_vector& /*输出位置*/, const pps& moment/*时间戳*/, constraint limit/*飞机各类约束*/, AlgorithmMng &am);
 void timegoes(pps& moment);
