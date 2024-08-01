@@ -18,8 +18,9 @@
 
 
 
-AlgorithmMng::AlgorithmMng() 
-{
+AlgorithmMng::AlgorithmMng() : queue(300)       // 在类初始化时 初始化sdcard中转buffer
+{   
+    init_target();
 	mImuDevFd = -1;
 
 	// mImuDevFd = IMUDEV_Open("/dev/spidev0.0");
@@ -34,7 +35,13 @@ AlgorithmMng::~AlgorithmMng()
 void AlgorithmMng::start() {
 
     /** 补位新增*/
-    receiveThread = std::thread(std::bind(&AlgorithmMng::receive, this));
+    logThread = std::thread(std::bind(&AlgorithmMng::inner_log, this));
+    receiveThread = std::thread(std::bind(&AlgorithmMng::receive, this));           // 开启接收线程
+    //TODO 这里应该阻塞，直到收到指定补位ID号且类成员明确被赋值后才进行读文件操作
+    loaderThread = std::thread(loadInCycque, std::ref(moment), std::ref(queue));    // 加载缓冲池
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));                   // 给点时间让ram装载
+    planningThread = std::thread(std::bind(&AlgorithmMng::planning, this, std::ref(queue), std::ref(ID)/*需要指定*/, std::ref(virtual_posi), std::ref(guider), std::ref(moment), limit));      // 输入当前位置 时间 输出期望位置guider(guide, moment)
 
 
 
@@ -336,7 +343,8 @@ void AlgorithmMng::DroneThread()
 }
 
 void AlgorithmMng::handleMsgFromDrone(mavlink_message_t *msg)
-{   printf("Listen mavlink!!!!!!!!\n");
+{   
+    // printf("Listen mavlink!!!!!!!!\n");
 	switch (msg->msgid)
 	{
 		case MAVLINK_MSG_ID_REPORT_STATS:
@@ -355,10 +363,16 @@ void AlgorithmMng::handleMsgFromDrone(mavlink_message_t *msg)
 		}
         
         case MAVLINK_MSG_ID_auto_filling_dance:
-        {   printf("In head auto_filling_dance\n");
+        {   
             mavlink_auto_filling_dance_t dance_cmd;
             mavlink_msg_auto_filling_dance_decode(msg, &dance_cmd);
-            printf("x: %f,y: %fz: %fframe: %u\n",dance_cmd.x,dance_cmd.y,dance_cmd.z,dance_cmd.frame);
+            mtx_position.lock();
+            virtual_posi.x = (double)dance_cmd.x;
+            virtual_posi.y = (double)dance_cmd.y;
+            virtual_posi.z = (double)dance_cmd.z;
+            moment.frame = (unsigned int)dance_cmd.frame;
+            mtx_position.unlock();
+            // printf("x: %f,y: %fz: %fframe: %u\n", virtual_posi.x, virtual_posi.y, virtual_posi.z, moment.frame);
 
         }//TODO 
 		default :
@@ -398,3 +412,38 @@ void AlgorithmMng::send_planningPosition(mavlink_auto_filling_dance_t *msg)
 	// mAdbServer->send(reinterpret_cast<const char*>(buf), static_cast<int>(buf_size));
 }
 
+void AlgorithmMng::init_target()
+{   
+    // int result = system("/root/sethost.sh");
+    // // int result = system("/root/test_zwz.sh");
+    // if (result == 0) {printf("Make shell OTG host init success\n");}    // shell脚本成功执行
+    // else {printf("Fail to shell OTG host\n");}                          // shell脚本执行失败
+    // std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
+    // ID = 911;                       // SN from 1 instead of 0
+    ID = 19;
+    moment = {5095};                  // 第95帧开始丢
+    virtual_posi = {0, 0, 0};
+    // virtual_posi = {7, 23, 335};
+    // virtual_posi = {-160, 70, 150};
+    // queue = new CircularQueue(300); // 动态分配
+    // printf("SUCCESS init\n");
+}
+
+void AlgorithmMng::inner_log(){
+    while (true)
+    {   static int count = 0;
+        printf("count_recevNUM: %d x: %f,y: %fz: %fframe: %u\n",count, virtual_posi.x,virtual_posi.y,virtual_posi.z,moment.frame);
+        count++;
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
+}
+
+void AlgorithmMng::receive() {
+    while (true)
+    {   
+        mavlink_message_t msg;
+        handleMsgFromDrone(&msg);
+        // std::this_thread::sleep_for(std::chrono::milliseconds(300)); 
+    }
+}

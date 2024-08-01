@@ -155,7 +155,7 @@ std::vector<vec3d> segmentVector(const vec3d& start, const vec3d& end, double l)
 // }
 
 bool NEXT = true;
-void planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失的droneID*/,const vec3d& origin_position/*当前位置*/, Guide_vector& guider/*输出指导向量*/, const pps& origin_moment/*时间戳*/, constraint limit/*飞机各类约束*/, AlgorithmMng &am)
+void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失的droneID*/,const vec3d& origin_position/*当前位置*/, Guide_vector& guider/*输出指导向量*/, const pps& origin_moment/*时间戳*/, constraint limit/*飞机各类约束*/)
 {   
     mavlink_auto_filling_dance_t singleSend_msg;        // 定义每次发送给飞机的期望向量
     // matrix 在这里要重新定义一下 以弹出校验的形式(启用)
@@ -163,9 +163,7 @@ void planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失的droneID*/,con
     // extern std::mutex changed; 
     // extern std::condition_variable cv;
     queue.dequeue(origin_moment.frame);     // 内部消耗更合理
-    extern std::mutex mtx_position;
     // extern bool yes_change;
-    extern bool guide_finish;
     // AStar::Vec2i zero = {0, 0};         // 复用: 1 起始点 2 质点扩增初始化
     AStar::Vec3i zero = {0, 0, 0};
     while (guide_finish == true)        // 计算完成 || 超时 || 无解 其他情况丢给异常处理线程 如果位置没移动，那么线程挂起
@@ -174,8 +172,8 @@ void planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失的droneID*/,con
         mtx_position.lock();            // 这里似乎没有必要加锁
         // std::unique_lock<std::mutex> lock(mtx_position);
         const vec3d position = origin_position;         // 获取 position
-        mtx_position.unlock();
         const pps moment = origin_moment;               // 获取 moment 本轮while循环中const pps moment不再改变 直到下轮循环
+        mtx_position.unlock();
         // auto start_time = std::chrono::high_resolution_clock::now();                                            // 记录开始时间用于测算单次路径规划的耗时
         // std::unique_lock<std::mutex> lock(changed);
         // cv.wait(lock, []{ return parameter_changed; });
@@ -183,7 +181,7 @@ void planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失的droneID*/,con
         if (NEXT)       // 正常完成计算时进入 否则进入else
         {   
             unsigned int frame = moment.frame;                                                                  // 获取当前帧
-            // if(!queue.dequeue(matrix))printf("current sequence pop go wrong\n");
+            // if(!queue.dequeue(matrix))printf("current sequence pop go wrong\n");                             // TODO这里需不需要判断一下SDbuffer中还有多少余量呢
             queue.atomicity = 0;                                                                                // 锁定cycbuffer的原子时间，期间不可dequeue以确保算法单次规划是一致可微的
             singleSend_msg.frame = frame;                                                                       // TODO 这里基于的时间需要有原子性吗？
             set3d target = queue.invoking(frame, (ID-1));                                                       // 获取目标当前位置
@@ -277,7 +275,8 @@ void planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失的droneID*/,con
                 singleSend_msg.x = static_cast<float> (output[1].x);
                 singleSend_msg.y = static_cast<float> (output[1].y);
                 singleSend_msg.z = static_cast<float> (output[1].z);
-                am.send_planningPosition(&singleSend_msg);
+                send_planningPosition(&singleSend_msg);
+                printf("Success planning px:%f ,py:%f ,pz:%f\n", singleSend_msg.x, singleSend_msg.y, singleSend_msg.z);
                 }  
 
                 // mtx_position.unlock();

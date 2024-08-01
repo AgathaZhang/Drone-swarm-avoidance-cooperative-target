@@ -10,24 +10,17 @@
 #include "planning.hpp"
 #include "algorithmmng.h"
 
-void timegoes(pps& moment) {
-    while (1)
-    {   extern vec3d output;
-        std::this_thread::sleep_for(std::chrono::milliseconds(33));         // 模拟每帧的实际时间 33ms
-        moment.frame ++;
-        // printf("moment now :%d\n", moment.frame);
-        // printf("guide_vec now :x %f\n, y %f\n, z %f\n", output.x, output.x, output.z);
-    }
-}
+// void timegoes(pps& moment) {
+//     while (1)
+//     {   extern vec3d output;
+//         std::this_thread::sleep_for(std::chrono::milliseconds(33));         // 模拟每帧的实际时间 33ms
+//         moment.frame ++;
+//         // printf("moment now :%d\n", moment.frame);
+//         // printf("guide_vec now :x %f\n, y %f\n, z %f\n", output.x, output.x, output.z);
+//     }
+// }
 
-void AlgorithmMng::receive() {
-    while (true)
-    {   
-        mavlink_message_t msg;
-        handleMsgFromDrone(&msg);
-        std::this_thread::sleep_for(std::chrono::milliseconds(300)); 
-    }
-}
+
 
 
 // void receive(AlgorithmMng& am) {
@@ -76,11 +69,10 @@ void AlgorithmMng::receive() {
 
 // 由于惯性 该惯性的迟滞大小和两次方向切线改变角度平方成正比 由此还可以计算能量损耗 
 // 速度是有方向的啊                                                                 
-void Virtual_location(const Guide_vector& origin_guide/*当前指导向量*/, vec3d& virtual_posi/*当前虚拟位置*/, const pps& moment, const constraint limit) {       // 改变虚拟位置的时候注意要加锁
+void AlgorithmMng::Virtual_location(const Guide_vector& origin_guide/*当前指导向量*/, vec3d& virtual_posi/*当前虚拟位置*/, const pps& moment, const constraint limit) {       // 改变虚拟位置的时候注意要加锁
         static auto /*米每帧*/maxDof = limit./*m/s*/constraint_speed / limit./*frame/s*/framerate;              // drone每帧飞行速度 即获取每帧最大飞行距离 这个距离是合成速度约束
-        extern std::mutex mtx_position;                                                                         // 位置数据锁
+
         // extern std::mutex mtx_guide_soket;                                                                      // 预测向量锁(弃用)
-        extern bool position_update;
         // extern std::vector<vec3d> guide_soket;// 预测向量锁(弃用)
         
         // extern bool guide_finish;

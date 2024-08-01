@@ -208,7 +208,7 @@ void loadInCycque(const pps& first_moment, CircularQueue& queue) {              
             queue.enqueue(current_sequence);                                        // 每个序列添加到队列
             // queue.dequeue(first_moment.frame);
         }
-        // queue.prt_count();    // buffer的容量监控打印
+        queue.prt_count();    // buffer的容量监控打印 装满了不会装
         inner_frame.frame++;
         // std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
