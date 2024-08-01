@@ -12,6 +12,8 @@
 #include "mavlink_msg_statustext.h"
 #include "motionfusion/sensfusion.h"
 #include "mavlink_msg_auto_filling_dance.h"     // 补位新加协议
+// #include "formation.hpp"
+// #include "planning.hpp"
 
 
 class AlgorithmMng {
@@ -29,12 +31,24 @@ public:
     void onMavlinkMessage(const mavlink_message_t *message);        // 回调函数 TODO 待修改
     void handleMsgFromDrone(mavlink_message_t *msg);
 
+    /** 补位函数 */
+    void receive();
+
 private:
     void ImuThread();
     void DroneThread();
     void CalAccThread();
 
 private:
+    /** 补位线程 */
+    std::thread timeThread;
+    std::thread receiveThread;
+    std::thread loader;
+    std::thread planningThread;
+    std::thread VirtualdroneThread;
+
+
+    /** 其他线程*/
     std::thread mImuThread;
     bool mImuStatus;
     int mImuDevFd;

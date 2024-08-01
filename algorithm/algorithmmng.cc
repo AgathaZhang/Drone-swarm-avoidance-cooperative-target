@@ -32,6 +32,14 @@ AlgorithmMng::~AlgorithmMng()
 }
 
 void AlgorithmMng::start() {
+
+    /** 补位新增*/
+    receiveThread = std::thread(std::bind(&AlgorithmMng::receive, this));
+
+
+
+
+
 	// mImuStatus = true;
     // mImuThread = std::thread(std::bind(&AlgorithmMng::ImuThread, this));
 
@@ -50,6 +58,12 @@ void AlgorithmMng::start() {
 }
 
 void AlgorithmMng::stop() {
+
+    /** 补位新增*/
+    receiveThread.join();
+
+
+
     // mImuStatus = false;
     // mImuThread.join();
 
@@ -341,10 +355,10 @@ void AlgorithmMng::handleMsgFromDrone(mavlink_message_t *msg)
 		}
         
         case MAVLINK_MSG_ID_auto_filling_dance:
-        {   
+        {   printf("In head auto_filling_dance\n");
             mavlink_auto_filling_dance_t dance_cmd;
             mavlink_msg_auto_filling_dance_decode(msg, &dance_cmd);
-            printf("x:  %f,y:  %fz:  %f\n",dance_cmd.x,dance_cmd.y,dance_cmd.z);
+            printf("x: %f,y: %fz: %fframe: %u\n",dance_cmd.x,dance_cmd.y,dance_cmd.z,dance_cmd.frame);
 
         }//TODO 
 		default :
@@ -383,3 +397,4 @@ void AlgorithmMng::send_planningPosition(mavlink_auto_filling_dance_t *msg)
     uart_send(mDroneDevFd, buf, buf_size);
 	// mAdbServer->send(reinterpret_cast<const char*>(buf), static_cast<int>(buf_size));
 }
+

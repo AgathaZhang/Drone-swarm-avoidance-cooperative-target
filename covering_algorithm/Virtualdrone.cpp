@@ -20,18 +20,26 @@ void timegoes(pps& moment) {
     }
 }
 
-void receive(AlgorithmMng& am) {
+void AlgorithmMng::receive() {
     while (true)
     {   
         mavlink_message_t msg;
-        // mavlink_message_t rc;
-        // am.onMavlinkMessage(&rc);
-        am.handleMsgFromDrone(&msg);
+        handleMsgFromDrone(&msg);
         std::this_thread::sleep_for(std::chrono::milliseconds(300)); 
     }
-    
-
 }
+
+
+// void receive(AlgorithmMng& am) {
+//     while (true)
+//     {   
+//         mavlink_message_t msg;
+//         // mavlink_message_t rc;
+//         // am.onMavlinkMessage(&rc);
+//         am.handleMsgFromDrone(&msg);
+//         std::this_thread::sleep_for(std::chrono::milliseconds(300)); 
+//     }
+// }
 
 // void changed(const vec3d& virtual_posi){
 //     extern bool yes_change;
