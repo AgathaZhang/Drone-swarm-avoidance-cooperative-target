@@ -157,17 +157,21 @@ std::vector<vec3d> segmentVector(const vec3d& start, const vec3d& end, double l)
 bool NEXT = true;
 void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失的droneID*/,const vec3d& origin_position/*当前位置*/, Guide_vector& guider/*输出指导向量*/, const pps& origin_moment/*时间戳*/, constraint limit/*飞机各类约束*/)
 {   
+    auto start_1 = std::chrono::high_resolution_clock::now();       // 先导段计时器
+    
     mavlink_auto_filling_dance_t singleSend_msg;        // 定义每次发送给飞机的期望向量
     // matrix 在这里要重新定义一下 以弹出校验的形式(启用)
     // extern bool parameter_changed;
     // extern std::mutex changed; 
     // extern std::condition_variable cv;
-    queue.dequeue(origin_moment.frame);     // 内部消耗更合理
+    // queue.dequeue(origin_moment.frame);     // TODO 内部消耗更合理  Q:放在这里合理吗?不合理吧,进线程的时候更新一次
     // extern bool yes_change;
     // AStar::Vec2i zero = {0, 0};         // 复用: 1 起始点 2 质点扩增初始化
     AStar::Vec3i zero = {0, 0, 0};
     while (guide_finish == true)        // 计算完成 || 超时 || 无解 其他情况丢给异常处理线程 如果位置没移动，那么线程挂起
     {   
+
+        queue.dequeue(origin_moment.frame);     
         guide_finish = false;           // 清空标志位
         mtx_position.lock();            // 这里似乎没有必要加锁
         // std::unique_lock<std::mutex> lock(mtx_position);
@@ -178,8 +182,16 @@ void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失�
         // std::unique_lock<std::mutex> lock(changed);
         // cv.wait(lock, []{ return parameter_changed; });
         // std::this_thread::sleep_for(std::chrono::milliseconds(43)); 
-        if (NEXT)       // 正常完成计算时进入 否则进入else
+        if (guidance_phase == false){
+            auto now_1 = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> elapsed_1 = now_1 - start_1;
+            elapsed_1.count() > guidance_time;
+            guidance_phase = true;
+        }
+
+        if (guidance_phase == true)       // 正常完成计算时进入 否则进入else
         {   
+            auto start = std::chrono::high_resolution_clock::now();                                             // 计算品质计时器
             unsigned int frame = moment.frame;                                                                  // 获取当前帧
             // if(!queue.dequeue(matrix))printf("current sequence pop go wrong\n");                             // TODO这里需不需要判断一下SDbuffer中还有多少余量呢
             queue.atomicity = 0;                                                                                // 锁定cycbuffer的原子时间，期间不可dequeue以确保算法单次规划是一致可微的
@@ -204,7 +216,9 @@ void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失�
             generator.setWorldSize({100, 100, 100});                                                                // 设置世界地图大小
             // std::vector<Mint2D> wall;                                                                            // 声明墙
             std::vector<AStar::Vec3i> hole = EXPAND_MAPPING_2Dvec(limit.collision_radius);                          // 设置安全区hole
-            // if (queue.buffer_count_() < 60){std::this_thread::sleep_for(std::chrono::milliseconds(10));}                                        // 睡眠等待填满
+            if (queue.buffer_count_() < 60){std::this_thread::sleep_for(std::chrono::milliseconds(10));}                                        // 睡眠等待填满
+
+            else{
             for (size_t i = 0; i < 60; i++)             // TODO 向后找多少帧 60帧 这里根据速度约束在单次计算的平均时间开销来推断,尽量的小,避免时序上过长 wall堵塞造成无解的情况
             {   
                 for (size_t j = 0; j < ALL_DRONE_NUM; j++)      // 检查看看是不是所有飞机都遍历到了
@@ -270,6 +284,11 @@ void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失�
                     output.push_back(temp);                                                 // 思考未来时刻frame z 上的碰撞
                 }
                 guider.update(output, frame);
+
+                auto now = std::chrono::high_resolution_clock::now();
+                std::chrono::duration<double> elapsed = now - start;
+                solution_time = elapsed.count();
+                start = now;
                 {
                 /** 发送的业务*/
                 singleSend_msg.x = static_cast<float> (output[1].x);
@@ -294,9 +313,16 @@ void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失�
             // 接下来虚拟飞机打卡坐标
             // 要更新
             // 线程停止 可以由生成路径的长度 和路径范数球收敛来控制
+                }
         }
         else 
         {   
+        
+            singleSend_msg.x = static_cast<float> (position.x);
+            singleSend_msg.y = static_cast<float> (position.y);
+            singleSend_msg.z = static_cast<float> (position.z + 0.3);
+            send_planningPosition(&singleSend_msg);
+            printf("Guideance planning px:%f ,py:%f ,pz:%f\n", singleSend_msg.x, singleSend_msg.y, singleSend_msg.z);
             // printf("enter the planning!!!!\n");     // 增加误解情况用上一次的值或原地等待    
         }
         

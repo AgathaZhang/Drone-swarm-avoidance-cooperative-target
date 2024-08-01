@@ -120,7 +120,9 @@ bool CircularQueue::dequeue(std::vector<set3d>& item/*取的最后一帧实体*/
         if (tempItem.frame < moment_sequence) {
             front_ = (front_ + 1) % size_;
             count_--;
-        } else {
+        }
+        // if (count_ < 60) break;         // 这里是为了不让SDbuffer一下子清空了 给点时间装载新的
+        else {
             break;
         }
     }

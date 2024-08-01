@@ -25,7 +25,13 @@ public:
     // bool parameter_changed = false;              // 参数改变检测标志
     // bool ready = false;
     // bool yes_change = false;
+    bool guidance_phase = false;
+    int guidance_time = 10;
     int failplanning_count;
+    //解品质
+    double solution_time; //解时间
+    //解反向
+
     int ID;                                         // 补位目标
     pps moment;                                     // 实时帧
     constraint limit;                               // 约束
