@@ -120,11 +120,12 @@ AStar::Vec3i Mint3DToVec3I(const Mint& v) {
     return AStar::Vec3i(v.x, v.y, v.z);
 }
 
-std::vector<vec3d> segmentVector(const vec3d& start, const vec3d& end, double l) {              // 长距离分段 l 表示 speed
+std::vector<vec3d> segmentVector(const vec3d& start, const vec3d& end, double l, double& endpoint_distance) {              // 长距离分段 l 表示 speed
     
     // auto start_time = std::chrono::high_resolution_clock::now();
     std::vector<vec3d> segments;
     double totalDistance = euclideanDistance(start, end);                   // 因为涉及到速度约束 这里似乎只能用欧拉距离了
+    endpoint_distance = totalDistance;
     int numSegments = static_cast<int>(std::ceil(totalDistance / l));       // 得到段数
     
     vec3d direction = { (end.x - start.x) / totalDistance,                  // direction 方向向量 斜边满足速度约束 正交边一定满足
@@ -154,7 +155,7 @@ std::vector<vec3d> segmentVector(const vec3d& start, const vec3d& end, double l)
 
 // }
 
-bool NEXT = true;
+
 void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失的droneID*/,const vec3d& origin_position/*当前位置*/, Guide_vector& guider/*输出指导向量*/, const pps& origin_moment/*时间戳*/, constraint limit/*飞机各类约束*/)
 {   
     auto start_1 = std::chrono::high_resolution_clock::now();       // 先导段计时器
@@ -182,14 +183,13 @@ void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失�
         // std::unique_lock<std::mutex> lock(changed);
         // cv.wait(lock, []{ return parameter_changed; });
         // std::this_thread::sleep_for(std::chrono::milliseconds(43)); 
-        if (guidance_phase == false){
+        if (guidance_phase == true){
             auto now_1 = std::chrono::high_resolution_clock::now();
             std::chrono::duration<double> elapsed_1 = now_1 - start_1;
-            elapsed_1.count() > guidance_time;
-            guidance_phase = true;
+            if(elapsed_1.count() > guidance_time)guidance_phase = false;
         }
-
-        if (guidance_phase == true)       // 正常完成计算时进入 否则进入else
+        /** 避障规划阶段*/
+        if (guidance_phase == false && (endpoint_distance/(limit.constraint_speed) > end_scope))                // 正常完成计算时进入 否则进入else
         {   
             auto start = std::chrono::high_resolution_clock::now();                                             // 计算品质计时器
             unsigned int frame = moment.frame;                                                                  // 获取当前帧
@@ -198,7 +198,7 @@ void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失�
             singleSend_msg.frame = frame;                                                                       // TODO 这里基于的时间需要有原子性吗？
             set3d target = queue.invoking(frame, (ID-1));                                                       // 获取目标当前位置
             // set3d target = matrix[frame-1][ID-1];                                                            // 获取目标当前位置
-            auto vector_seg = segmentVector(position, SET3D_TO_VEC3D(target), limit.constraint_speed);          // 向量分段 <vec3d> vector_seg (不包含0位置)
+            auto vector_seg = segmentVector(position, SET3D_TO_VEC3D(target), limit.constraint_speed, endpoint_distance);          // 向量分段 <vec3d> vector_seg (不包含0位置)
             vec3d increment = vector_seg[1] - position;                                                         // 取增量   <vec3d> increment  (往后看一个点)
             Mint guide_target = QUANTIZATION_MAPPING_3D(increment);                                             // 输入一个 vec3d的数据 量化映射到 <Mint> x y z
             AStar::Vec3i guide_target_final = Mint3DToVec3I(guide_target);                                        // 格式转换
@@ -288,7 +288,6 @@ void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失�
                 auto now = std::chrono::high_resolution_clock::now();
                 std::chrono::duration<double> elapsed = now - start;
                 solution_time = elapsed.count();
-                start = now;
                 {
                 /** 发送的业务*/
                 singleSend_msg.x = static_cast<float> (output[1].x);
@@ -296,8 +295,9 @@ void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失�
                 singleSend_msg.z = static_cast<float> (output[1].z);
                 send_planningPosition(&singleSend_msg);
                 printf("Success planning px:%f ,py:%f ,pz:%f\n", singleSend_msg.x, singleSend_msg.y, singleSend_msg.z);
+                // std::this_thread::sleep_for(std::chrono::milliseconds((int)(30.0-solution_time)));         // 33ms一帧
                 }  
-
+                
                 // mtx_position.unlock();
             }   // `lock` 在这里作用域结束自动解锁
                                                                         
@@ -315,15 +315,26 @@ void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失�
             // 线程停止 可以由生成路径的长度 和路径范数球收敛来控制
                 }
         }
-        else 
+        else if (guidance_phase == true)                /** 初始制导阶段*/
         {   
-        
+            // TODO 数据如果没上来呢 xy坐标是不是要检查一下是否正常
             singleSend_msg.x = static_cast<float> (position.x);
             singleSend_msg.y = static_cast<float> (position.y);
-            singleSend_msg.z = static_cast<float> (position.z + 0.3);
+            singleSend_msg.z = static_cast<float> (position.z + guidance_ascent_speed);
             send_planningPosition(&singleSend_msg);
-            printf("Guideance planning px:%f ,py:%f ,pz:%f\n", singleSend_msg.x, singleSend_msg.y, singleSend_msg.z);
+            printf("Guideance up px:%f ,py:%f ,pz:%f\n", singleSend_msg.x, singleSend_msg.y, singleSend_msg.z);
+            std::this_thread::sleep_for(std::chrono::milliseconds(33));         // 动态休眠以降低CPU开销
             // printf("enter the planning!!!!\n");     // 增加误解情况用上一次的值或原地等待    
+        }
+        else                                            /** 末端制导阶段*/
+        {   unsigned int frame = moment.frame;
+            set3d target = queue.invoking(frame, (ID-1));
+            singleSend_msg.x = static_cast<float> (target.x);
+            singleSend_msg.y = static_cast<float> (target.y);
+            singleSend_msg.z = static_cast<float> (target.z);
+            send_planningPosition(&singleSend_msg);
+            printf("Endpoint px:%f ,py:%f ,pz:%f\n", singleSend_msg.x, singleSend_msg.y, singleSend_msg.z);
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));         // 动态休眠以降低CPU开销
         }
         
         // 先导段,先抱持高度同步

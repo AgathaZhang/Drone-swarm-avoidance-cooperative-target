@@ -33,7 +33,7 @@ AlgorithmMng::~AlgorithmMng()
 }
 
 void AlgorithmMng::start() {
-
+    
     /** 补位新增*/
     logThread = std::thread(std::bind(&AlgorithmMng::inner_log, this));
     receiveThread = std::thread(std::bind(&AlgorithmMng::receive, this));           // 开启接收线程
@@ -430,14 +430,29 @@ void AlgorithmMng::init_target()
     // printf("SUCCESS init\n");
 }
 
-void AlgorithmMng::inner_log(){
-    while (true)
-    {   static int count = 0;
-        printf("count_recevNUM: %d x: %f,y: %fz: %fframe: %u\n",count, virtual_posi.x,virtual_posi.y,virtual_posi.z,moment.frame);
+void AlgorithmMng::inner_log() {
+    // 删除已有的log.txt文件
+    // std::remove("log.txt");
+
+    while (true) {
+        static int count = 0;
+        // std::lock_guard<std::mutex> lock(mtx_position); // 确保线程安全
+        printf("Recevinfo Count_NUM: %d x: %f,y: %fz: %fframe: %u\n",count, virtual_posi.x,virtual_posi.y,virtual_posi.z,moment.frame);
+        // printf("Planninginfo %d ", num_get);
+
+        // 使用 shell 命令将日志信息追加到文件末尾
+        // char command[512];
+        // snprintf(command, sizeof(command),
+        //          "echo \"Recevinfo Count_NUM: %d x: %f, y: %f, z: %f, frame: %u\" >> log.txt && echo \"Planninginfo %d \" >> log.txt",
+        //          count, virtual_posi.x, virtual_posi.y, virtual_posi.z, moment.frame);
+
+        // system(command);
+
         count++;
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        std::this_thread::sleep_for(std::chrono::milliseconds(500)); // 每500毫秒打印一次
     }
 }
+
 
 void AlgorithmMng::receive() {
     while (true)

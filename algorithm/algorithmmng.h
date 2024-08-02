@@ -25,12 +25,15 @@ public:
     // bool parameter_changed = false;              // 参数改变检测标志
     // bool ready = false;
     // bool yes_change = false;
-    bool guidance_phase = false;
-    int guidance_time = 10;
-    int failplanning_count;
-    //解品质
-    double solution_time; //解时间
-    //解反向
+    bool guidance_phase = true;                     // 初始制导阶段
+    int guidance_time = 8;                          // 初始制导上升时间 s
+    double guidance_ascent_speed = 0.1;             // 初始上升速度 m/帧
+    int failPlanning_count;                         // 解反向    TODO 可以通过解终点方向判断解反向情况
+    int quadrantDrone_num;                          // 解品质
+    double solution_time;                           // 解时间
+    double endpoint_distance = 1000;                // 当前距离终端位置的距离
+    double end_scope = 1;                           // 结束寻路的范围
+    
 
     int ID;                                         // 补位目标
     pps moment;                                     // 实时帧
