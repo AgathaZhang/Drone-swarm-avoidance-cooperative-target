@@ -5,44 +5,53 @@
 
 
 typedef struct __mavlink_auto_filling_dance_t {
- float x; /*<  */
- float y; /*<  */
- float z; /*<  */
- uint32_t frame; /*<  */
- uint8_t reserved[5]; /*<  */
+ float pos[3]; /*<  */
+ float acc[3]; /*<  */
+ uint16_t frame; /*<  */
+ uint16_t drone_id; /*<  */
+ uint8_t rgb[3]; /*<  */
+ uint8_t res; /*<  */
+ uint8_t reserved[3]; /*<  */
 } mavlink_auto_filling_dance_t;
 
-#define MAVLINK_MSG_ID_auto_filling_dance_LEN 21
-#define MAVLINK_MSG_ID_auto_filling_dance_MIN_LEN 21
-#define MAVLINK_MSG_ID_196_LEN 21
-#define MAVLINK_MSG_ID_196_MIN_LEN 21
+#define MAVLINK_MSG_ID_auto_filling_dance_LEN 35
+#define MAVLINK_MSG_ID_auto_filling_dance_MIN_LEN 35
+#define MAVLINK_MSG_ID_196_LEN 35
+#define MAVLINK_MSG_ID_196_MIN_LEN 35
 
-#define MAVLINK_MSG_ID_auto_filling_dance_CRC 126
-#define MAVLINK_MSG_ID_196_CRC 126
+#define MAVLINK_MSG_ID_auto_filling_dance_CRC 49
+#define MAVLINK_MSG_ID_196_CRC 49
 
-#define MAVLINK_MSG_auto_filling_dance_FIELD_RESERVED_LEN 5
+#define MAVLINK_MSG_auto_filling_dance_FIELD_POS_LEN 3
+#define MAVLINK_MSG_auto_filling_dance_FIELD_ACC_LEN 3
+#define MAVLINK_MSG_auto_filling_dance_FIELD_RGB_LEN 3
+#define MAVLINK_MSG_auto_filling_dance_FIELD_RESERVED_LEN 3
 
 #if MAVLINK_COMMAND_24BIT
 #define MAVLINK_MESSAGE_INFO_auto_filling_dance { \
     196, \
     "auto_filling_dance", \
-    5, \
-    {  { "x", NULL, MAVLINK_TYPE_FLOAT, 0, 0, offsetof(mavlink_auto_filling_dance_t, x) }, \
-         { "y", NULL, MAVLINK_TYPE_FLOAT, 0, 4, offsetof(mavlink_auto_filling_dance_t, y) }, \
-         { "z", NULL, MAVLINK_TYPE_FLOAT, 0, 8, offsetof(mavlink_auto_filling_dance_t, z) }, \
-         { "frame", NULL, MAVLINK_TYPE_UINT32_T, 0, 12, offsetof(mavlink_auto_filling_dance_t, frame) }, \
-         { "reserved", NULL, MAVLINK_TYPE_UINT8_T, 5, 16, offsetof(mavlink_auto_filling_dance_t, reserved) }, \
+    7, \
+    {  { "pos", NULL, MAVLINK_TYPE_FLOAT, 3, 0, offsetof(mavlink_auto_filling_dance_t, pos) }, \
+         { "acc", NULL, MAVLINK_TYPE_FLOAT, 3, 12, offsetof(mavlink_auto_filling_dance_t, acc) }, \
+         { "rgb", NULL, MAVLINK_TYPE_UINT8_T, 3, 28, offsetof(mavlink_auto_filling_dance_t, rgb) }, \
+         { "frame", NULL, MAVLINK_TYPE_UINT16_T, 0, 24, offsetof(mavlink_auto_filling_dance_t, frame) }, \
+         { "drone_id", NULL, MAVLINK_TYPE_UINT16_T, 0, 26, offsetof(mavlink_auto_filling_dance_t, drone_id) }, \
+         { "res", NULL, MAVLINK_TYPE_UINT8_T, 0, 31, offsetof(mavlink_auto_filling_dance_t, res) }, \
+         { "reserved", NULL, MAVLINK_TYPE_UINT8_T, 3, 32, offsetof(mavlink_auto_filling_dance_t, reserved) }, \
          } \
 }
 #else
 #define MAVLINK_MESSAGE_INFO_auto_filling_dance { \
     "auto_filling_dance", \
-    5, \
-    {  { "x", NULL, MAVLINK_TYPE_FLOAT, 0, 0, offsetof(mavlink_auto_filling_dance_t, x) }, \
-         { "y", NULL, MAVLINK_TYPE_FLOAT, 0, 4, offsetof(mavlink_auto_filling_dance_t, y) }, \
-         { "z", NULL, MAVLINK_TYPE_FLOAT, 0, 8, offsetof(mavlink_auto_filling_dance_t, z) }, \
-         { "frame", NULL, MAVLINK_TYPE_UINT32_T, 0, 12, offsetof(mavlink_auto_filling_dance_t, frame) }, \
-         { "reserved", NULL, MAVLINK_TYPE_UINT8_T, 5, 16, offsetof(mavlink_auto_filling_dance_t, reserved) }, \
+    7, \
+    {  { "pos", NULL, MAVLINK_TYPE_FLOAT, 3, 0, offsetof(mavlink_auto_filling_dance_t, pos) }, \
+         { "acc", NULL, MAVLINK_TYPE_FLOAT, 3, 12, offsetof(mavlink_auto_filling_dance_t, acc) }, \
+         { "rgb", NULL, MAVLINK_TYPE_UINT8_T, 3, 28, offsetof(mavlink_auto_filling_dance_t, rgb) }, \
+         { "frame", NULL, MAVLINK_TYPE_UINT16_T, 0, 24, offsetof(mavlink_auto_filling_dance_t, frame) }, \
+         { "drone_id", NULL, MAVLINK_TYPE_UINT16_T, 0, 26, offsetof(mavlink_auto_filling_dance_t, drone_id) }, \
+         { "res", NULL, MAVLINK_TYPE_UINT8_T, 0, 31, offsetof(mavlink_auto_filling_dance_t, res) }, \
+         { "reserved", NULL, MAVLINK_TYPE_UINT8_T, 3, 32, offsetof(mavlink_auto_filling_dance_t, reserved) }, \
          } \
 }
 #endif
@@ -53,34 +62,38 @@ typedef struct __mavlink_auto_filling_dance_t {
  * @param component_id ID of this component (e.g. 200 for IMU)
  * @param msg The MAVLink message to compress the data into
  *
- * @param x  
- * @param y  
- * @param z  
+ * @param pos  
+ * @param acc  
+ * @param rgb  
  * @param frame  
+ * @param drone_id  
+ * @param res  
  * @param reserved  
  * @return length of the message in bytes (excluding serial stream start sign)
  */
 
-static inline uint16_t mavlink_msg_bwcode_encode(uint8_t system_id, uint8_t component_id, mavlink_message_t* msg, const mavlink_auto_filling_dance_t* qrcode);  //添加提前申明
-
 static inline uint16_t mavlink_msg_auto_filling_dance_pack(uint8_t system_id, uint8_t component_id, mavlink_message_t* msg,
-                               float x, float y, float z, uint32_t frame, const uint8_t *reserved)
+                               const float *pos, const float *acc, const uint8_t *rgb, uint16_t frame, uint16_t drone_id, uint8_t res, const uint8_t *reserved)
 {
 #if MAVLINK_NEED_BYTE_SWAP || !MAVLINK_ALIGNED_FIELDS
     char buf[MAVLINK_MSG_ID_auto_filling_dance_LEN];
-    _mav_put_float(buf, 0, x);
-    _mav_put_float(buf, 4, y);
-    _mav_put_float(buf, 8, z);
-    _mav_put_uint32_t(buf, 12, frame);
-    _mav_put_uint8_t_array(buf, 16, reserved, 5);
+    _mav_put_uint16_t(buf, 24, frame);
+    _mav_put_uint16_t(buf, 26, drone_id);
+    _mav_put_uint8_t(buf, 31, res);
+    _mav_put_float_array(buf, 0, pos, 3);
+    _mav_put_float_array(buf, 12, acc, 3);
+    _mav_put_uint8_t_array(buf, 28, rgb, 3);
+    _mav_put_uint8_t_array(buf, 32, reserved, 3);
         memcpy(_MAV_PAYLOAD_NON_CONST(msg), buf, MAVLINK_MSG_ID_auto_filling_dance_LEN);
 #else
     mavlink_auto_filling_dance_t packet;
-    packet.x = x;
-    packet.y = y;
-    packet.z = z;
     packet.frame = frame;
-    mav_array_memcpy(packet.reserved, reserved, sizeof(uint8_t)*5);
+    packet.drone_id = drone_id;
+    packet.res = res;
+    mav_array_memcpy(packet.pos, pos, sizeof(float)*3);
+    mav_array_memcpy(packet.acc, acc, sizeof(float)*3);
+    mav_array_memcpy(packet.rgb, rgb, sizeof(uint8_t)*3);
+    mav_array_memcpy(packet.reserved, reserved, sizeof(uint8_t)*3);
         memcpy(_MAV_PAYLOAD_NON_CONST(msg), &packet, MAVLINK_MSG_ID_auto_filling_dance_LEN);
 #endif
 
@@ -91,7 +104,7 @@ static inline uint16_t mavlink_msg_auto_filling_dance_pack(uint8_t system_id, ui
 /** 打包添加补位自定义数据格式2024.07.30*/  // TODO 改为mavlink_msg_auto_filling_dance_pack改为XML自动生成代码中的打包函数
 static inline uint16_t mavlink_msg_bwcode_encode(uint8_t system_id, uint8_t component_id, mavlink_message_t* msg, const mavlink_auto_filling_dance_t* qrcode)
 {
-	return mavlink_msg_auto_filling_dance_pack(system_id, component_id, msg, qrcode->x,qrcode->y, qrcode->z, qrcode->frame, qrcode->reserved);
+	return mavlink_msg_auto_filling_dance_pack(system_id, component_id, msg, qrcode->pos, qrcode->acc, qrcode->rgb, qrcode->frame, qrcode->drone_id, qrcode->res, qrcode->reserved);
 }
 
 /**
@@ -100,32 +113,38 @@ static inline uint16_t mavlink_msg_bwcode_encode(uint8_t system_id, uint8_t comp
  * @param component_id ID of this component (e.g. 200 for IMU)
  * @param chan The MAVLink channel this message will be sent over
  * @param msg The MAVLink message to compress the data into
- * @param x  
- * @param y  
- * @param z  
+ * @param pos  
+ * @param acc  
+ * @param rgb  
  * @param frame  
+ * @param drone_id  
+ * @param res  
  * @param reserved  
  * @return length of the message in bytes (excluding serial stream start sign)
  */
 static inline uint16_t mavlink_msg_auto_filling_dance_pack_chan(uint8_t system_id, uint8_t component_id, uint8_t chan,
                                mavlink_message_t* msg,
-                                   float x,float y,float z,uint32_t frame,const uint8_t *reserved)
+                                   const float *pos,const float *acc,const uint8_t *rgb,uint16_t frame,uint16_t drone_id,uint8_t res,const uint8_t *reserved)
 {
 #if MAVLINK_NEED_BYTE_SWAP || !MAVLINK_ALIGNED_FIELDS
     char buf[MAVLINK_MSG_ID_auto_filling_dance_LEN];
-    _mav_put_float(buf, 0, x);
-    _mav_put_float(buf, 4, y);
-    _mav_put_float(buf, 8, z);
-    _mav_put_uint32_t(buf, 12, frame);
-    _mav_put_uint8_t_array(buf, 16, reserved, 5);
+    _mav_put_uint16_t(buf, 24, frame);
+    _mav_put_uint16_t(buf, 26, drone_id);
+    _mav_put_uint8_t(buf, 31, res);
+    _mav_put_float_array(buf, 0, pos, 3);
+    _mav_put_float_array(buf, 12, acc, 3);
+    _mav_put_uint8_t_array(buf, 28, rgb, 3);
+    _mav_put_uint8_t_array(buf, 32, reserved, 3);
         memcpy(_MAV_PAYLOAD_NON_CONST(msg), buf, MAVLINK_MSG_ID_auto_filling_dance_LEN);
 #else
     mavlink_auto_filling_dance_t packet;
-    packet.x = x;
-    packet.y = y;
-    packet.z = z;
     packet.frame = frame;
-    mav_array_memcpy(packet.reserved, reserved, sizeof(uint8_t)*5);
+    packet.drone_id = drone_id;
+    packet.res = res;
+    mav_array_memcpy(packet.pos, pos, sizeof(float)*3);
+    mav_array_memcpy(packet.acc, acc, sizeof(float)*3);
+    mav_array_memcpy(packet.rgb, rgb, sizeof(uint8_t)*3);
+    mav_array_memcpy(packet.reserved, reserved, sizeof(uint8_t)*3);
         memcpy(_MAV_PAYLOAD_NON_CONST(msg), &packet, MAVLINK_MSG_ID_auto_filling_dance_LEN);
 #endif
 
@@ -143,7 +162,7 @@ static inline uint16_t mavlink_msg_auto_filling_dance_pack_chan(uint8_t system_i
  */
 static inline uint16_t mavlink_msg_auto_filling_dance_encode(uint8_t system_id, uint8_t component_id, mavlink_message_t* msg, const mavlink_auto_filling_dance_t* auto_filling_dance)
 {
-    return mavlink_msg_auto_filling_dance_pack(system_id, component_id, msg, auto_filling_dance->x, auto_filling_dance->y, auto_filling_dance->z, auto_filling_dance->frame, auto_filling_dance->reserved);
+    return mavlink_msg_auto_filling_dance_pack(system_id, component_id, msg, auto_filling_dance->pos, auto_filling_dance->acc, auto_filling_dance->rgb, auto_filling_dance->frame, auto_filling_dance->drone_id, auto_filling_dance->res, auto_filling_dance->reserved);
 }
 
 /**
@@ -157,38 +176,44 @@ static inline uint16_t mavlink_msg_auto_filling_dance_encode(uint8_t system_id, 
  */
 static inline uint16_t mavlink_msg_auto_filling_dance_encode_chan(uint8_t system_id, uint8_t component_id, uint8_t chan, mavlink_message_t* msg, const mavlink_auto_filling_dance_t* auto_filling_dance)
 {
-    return mavlink_msg_auto_filling_dance_pack_chan(system_id, component_id, chan, msg, auto_filling_dance->x, auto_filling_dance->y, auto_filling_dance->z, auto_filling_dance->frame, auto_filling_dance->reserved);
+    return mavlink_msg_auto_filling_dance_pack_chan(system_id, component_id, chan, msg, auto_filling_dance->pos, auto_filling_dance->acc, auto_filling_dance->rgb, auto_filling_dance->frame, auto_filling_dance->drone_id, auto_filling_dance->res, auto_filling_dance->reserved);
 }
 
 /**
  * @brief Send a auto_filling_dance message
  * @param chan MAVLink channel to send the message
  *
- * @param x  
- * @param y  
- * @param z  
+ * @param pos  
+ * @param acc  
+ * @param rgb  
  * @param frame  
+ * @param drone_id  
+ * @param res  
  * @param reserved  
  */
 #ifdef MAVLINK_USE_CONVENIENCE_FUNCTIONS
 
-static inline void mavlink_msg_auto_filling_dance_send(mavlink_channel_t chan, float x, float y, float z, uint32_t frame, const uint8_t *reserved)
+static inline void mavlink_msg_auto_filling_dance_send(mavlink_channel_t chan, const float *pos, const float *acc, const uint8_t *rgb, uint16_t frame, uint16_t drone_id, uint8_t res, const uint8_t *reserved)
 {
 #if MAVLINK_NEED_BYTE_SWAP || !MAVLINK_ALIGNED_FIELDS
     char buf[MAVLINK_MSG_ID_auto_filling_dance_LEN];
-    _mav_put_float(buf, 0, x);
-    _mav_put_float(buf, 4, y);
-    _mav_put_float(buf, 8, z);
-    _mav_put_uint32_t(buf, 12, frame);
-    _mav_put_uint8_t_array(buf, 16, reserved, 5);
+    _mav_put_uint16_t(buf, 24, frame);
+    _mav_put_uint16_t(buf, 26, drone_id);
+    _mav_put_uint8_t(buf, 31, res);
+    _mav_put_float_array(buf, 0, pos, 3);
+    _mav_put_float_array(buf, 12, acc, 3);
+    _mav_put_uint8_t_array(buf, 28, rgb, 3);
+    _mav_put_uint8_t_array(buf, 32, reserved, 3);
     _mav_finalize_message_chan_send(chan, MAVLINK_MSG_ID_auto_filling_dance, buf, MAVLINK_MSG_ID_auto_filling_dance_MIN_LEN, MAVLINK_MSG_ID_auto_filling_dance_LEN, MAVLINK_MSG_ID_auto_filling_dance_CRC);
 #else
     mavlink_auto_filling_dance_t packet;
-    packet.x = x;
-    packet.y = y;
-    packet.z = z;
     packet.frame = frame;
-    mav_array_memcpy(packet.reserved, reserved, sizeof(uint8_t)*5);
+    packet.drone_id = drone_id;
+    packet.res = res;
+    mav_array_memcpy(packet.pos, pos, sizeof(float)*3);
+    mav_array_memcpy(packet.acc, acc, sizeof(float)*3);
+    mav_array_memcpy(packet.rgb, rgb, sizeof(uint8_t)*3);
+    mav_array_memcpy(packet.reserved, reserved, sizeof(uint8_t)*3);
     _mav_finalize_message_chan_send(chan, MAVLINK_MSG_ID_auto_filling_dance, (const char *)&packet, MAVLINK_MSG_ID_auto_filling_dance_MIN_LEN, MAVLINK_MSG_ID_auto_filling_dance_LEN, MAVLINK_MSG_ID_auto_filling_dance_CRC);
 #endif
 }
@@ -201,7 +226,7 @@ static inline void mavlink_msg_auto_filling_dance_send(mavlink_channel_t chan, f
 static inline void mavlink_msg_auto_filling_dance_send_struct(mavlink_channel_t chan, const mavlink_auto_filling_dance_t* auto_filling_dance)
 {
 #if MAVLINK_NEED_BYTE_SWAP || !MAVLINK_ALIGNED_FIELDS
-    mavlink_msg_auto_filling_dance_send(chan, auto_filling_dance->x, auto_filling_dance->y, auto_filling_dance->z, auto_filling_dance->frame, auto_filling_dance->reserved);
+    mavlink_msg_auto_filling_dance_send(chan, auto_filling_dance->pos, auto_filling_dance->acc, auto_filling_dance->rgb, auto_filling_dance->frame, auto_filling_dance->drone_id, auto_filling_dance->res, auto_filling_dance->reserved);
 #else
     _mav_finalize_message_chan_send(chan, MAVLINK_MSG_ID_auto_filling_dance, (const char *)auto_filling_dance, MAVLINK_MSG_ID_auto_filling_dance_MIN_LEN, MAVLINK_MSG_ID_auto_filling_dance_LEN, MAVLINK_MSG_ID_auto_filling_dance_CRC);
 #endif
@@ -215,23 +240,27 @@ static inline void mavlink_msg_auto_filling_dance_send_struct(mavlink_channel_t 
   is usually the receive buffer for the channel, and allows a reply to an
   incoming message with minimum stack space usage.
  */
-static inline void mavlink_msg_auto_filling_dance_send_buf(mavlink_message_t *msgbuf, mavlink_channel_t chan,  float x, float y, float z, uint32_t frame, const uint8_t *reserved)
+static inline void mavlink_msg_auto_filling_dance_send_buf(mavlink_message_t *msgbuf, mavlink_channel_t chan,  const float *pos, const float *acc, const uint8_t *rgb, uint16_t frame, uint16_t drone_id, uint8_t res, const uint8_t *reserved)
 {
 #if MAVLINK_NEED_BYTE_SWAP || !MAVLINK_ALIGNED_FIELDS
     char *buf = (char *)msgbuf;
-    _mav_put_float(buf, 0, x);
-    _mav_put_float(buf, 4, y);
-    _mav_put_float(buf, 8, z);
-    _mav_put_uint32_t(buf, 12, frame);
-    _mav_put_uint8_t_array(buf, 16, reserved, 5);
+    _mav_put_uint16_t(buf, 24, frame);
+    _mav_put_uint16_t(buf, 26, drone_id);
+    _mav_put_uint8_t(buf, 31, res);
+    _mav_put_float_array(buf, 0, pos, 3);
+    _mav_put_float_array(buf, 12, acc, 3);
+    _mav_put_uint8_t_array(buf, 28, rgb, 3);
+    _mav_put_uint8_t_array(buf, 32, reserved, 3);
     _mav_finalize_message_chan_send(chan, MAVLINK_MSG_ID_auto_filling_dance, buf, MAVLINK_MSG_ID_auto_filling_dance_MIN_LEN, MAVLINK_MSG_ID_auto_filling_dance_LEN, MAVLINK_MSG_ID_auto_filling_dance_CRC);
 #else
     mavlink_auto_filling_dance_t *packet = (mavlink_auto_filling_dance_t *)msgbuf;
-    packet->x = x;
-    packet->y = y;
-    packet->z = z;
     packet->frame = frame;
-    mav_array_memcpy(packet->reserved, reserved, sizeof(uint8_t)*5);
+    packet->drone_id = drone_id;
+    packet->res = res;
+    mav_array_memcpy(packet->pos, pos, sizeof(float)*3);
+    mav_array_memcpy(packet->acc, acc, sizeof(float)*3);
+    mav_array_memcpy(packet->rgb, rgb, sizeof(uint8_t)*3);
+    mav_array_memcpy(packet->reserved, reserved, sizeof(uint8_t)*3);
     _mav_finalize_message_chan_send(chan, MAVLINK_MSG_ID_auto_filling_dance, (const char *)packet, MAVLINK_MSG_ID_auto_filling_dance_MIN_LEN, MAVLINK_MSG_ID_auto_filling_dance_LEN, MAVLINK_MSG_ID_auto_filling_dance_CRC);
 #endif
 }
@@ -243,33 +272,33 @@ static inline void mavlink_msg_auto_filling_dance_send_buf(mavlink_message_t *ms
 
 
 /**
- * @brief Get field x from auto_filling_dance message
+ * @brief Get field pos from auto_filling_dance message
  *
  * @return  
  */
-static inline float mavlink_msg_auto_filling_dance_get_x(const mavlink_message_t* msg)
+static inline uint16_t mavlink_msg_auto_filling_dance_get_pos(const mavlink_message_t* msg, float *pos)
 {
-    return _MAV_RETURN_float(msg,  0);
+    return _MAV_RETURN_float_array(msg, pos, 3,  0);
 }
 
 /**
- * @brief Get field y from auto_filling_dance message
+ * @brief Get field acc from auto_filling_dance message
  *
  * @return  
  */
-static inline float mavlink_msg_auto_filling_dance_get_y(const mavlink_message_t* msg)
+static inline uint16_t mavlink_msg_auto_filling_dance_get_acc(const mavlink_message_t* msg, float *acc)
 {
-    return _MAV_RETURN_float(msg,  4);
+    return _MAV_RETURN_float_array(msg, acc, 3,  12);
 }
 
 /**
- * @brief Get field z from auto_filling_dance message
+ * @brief Get field rgb from auto_filling_dance message
  *
  * @return  
  */
-static inline float mavlink_msg_auto_filling_dance_get_z(const mavlink_message_t* msg)
+static inline uint16_t mavlink_msg_auto_filling_dance_get_rgb(const mavlink_message_t* msg, uint8_t *rgb)
 {
-    return _MAV_RETURN_float(msg,  8);
+    return _MAV_RETURN_uint8_t_array(msg, rgb, 3,  28);
 }
 
 /**
@@ -277,9 +306,29 @@ static inline float mavlink_msg_auto_filling_dance_get_z(const mavlink_message_t
  *
  * @return  
  */
-static inline uint32_t mavlink_msg_auto_filling_dance_get_frame(const mavlink_message_t* msg)
+static inline uint16_t mavlink_msg_auto_filling_dance_get_frame(const mavlink_message_t* msg)
 {
-    return _MAV_RETURN_uint32_t(msg,  12);
+    return _MAV_RETURN_uint16_t(msg,  24);
+}
+
+/**
+ * @brief Get field drone_id from auto_filling_dance message
+ *
+ * @return  
+ */
+static inline uint16_t mavlink_msg_auto_filling_dance_get_drone_id(const mavlink_message_t* msg)
+{
+    return _MAV_RETURN_uint16_t(msg,  26);
+}
+
+/**
+ * @brief Get field res from auto_filling_dance message
+ *
+ * @return  
+ */
+static inline uint8_t mavlink_msg_auto_filling_dance_get_res(const mavlink_message_t* msg)
+{
+    return _MAV_RETURN_uint8_t(msg,  31);
 }
 
 /**
@@ -289,7 +338,7 @@ static inline uint32_t mavlink_msg_auto_filling_dance_get_frame(const mavlink_me
  */
 static inline uint16_t mavlink_msg_auto_filling_dance_get_reserved(const mavlink_message_t* msg, uint8_t *reserved)
 {
-    return _MAV_RETURN_uint8_t_array(msg, reserved, 5,  16);
+    return _MAV_RETURN_uint8_t_array(msg, reserved, 3,  32);
 }
 
 /**
@@ -301,10 +350,12 @@ static inline uint16_t mavlink_msg_auto_filling_dance_get_reserved(const mavlink
 static inline void mavlink_msg_auto_filling_dance_decode(const mavlink_message_t* msg, mavlink_auto_filling_dance_t* auto_filling_dance)
 {
 #if MAVLINK_NEED_BYTE_SWAP || !MAVLINK_ALIGNED_FIELDS
-    auto_filling_dance->x = mavlink_msg_auto_filling_dance_get_x(msg);
-    auto_filling_dance->y = mavlink_msg_auto_filling_dance_get_y(msg);
-    auto_filling_dance->z = mavlink_msg_auto_filling_dance_get_z(msg);
+    mavlink_msg_auto_filling_dance_get_pos(msg, auto_filling_dance->pos);
+    mavlink_msg_auto_filling_dance_get_acc(msg, auto_filling_dance->acc);
     auto_filling_dance->frame = mavlink_msg_auto_filling_dance_get_frame(msg);
+    auto_filling_dance->drone_id = mavlink_msg_auto_filling_dance_get_drone_id(msg);
+    mavlink_msg_auto_filling_dance_get_rgb(msg, auto_filling_dance->rgb);
+    auto_filling_dance->res = mavlink_msg_auto_filling_dance_get_res(msg);
     mavlink_msg_auto_filling_dance_get_reserved(msg, auto_filling_dance->reserved);
 #else
         uint8_t len = msg->len < MAVLINK_MSG_ID_auto_filling_dance_LEN? msg->len : MAVLINK_MSG_ID_auto_filling_dance_LEN;

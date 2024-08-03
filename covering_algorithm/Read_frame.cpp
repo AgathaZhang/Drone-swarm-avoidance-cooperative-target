@@ -1,10 +1,11 @@
 #include "formation.hpp"
+#include "algorithmmng.h"
 #include <thread>
 
 int start_frame = 25;				// 开始补位动作帧
 double constraint_speed = 6;		// 速度约束
 double collision_radius = 1.4;		// 避碰半径
-int ALL_DRONE_NUM = 1934;			// 飞机总数
+// int ALL_DRONE_NUM = 1934;			// 飞机总数
 
 size_t FileDescriptorManager::initialize(const std::string& directory) {
         DIR* dir = opendir(directory.c_str());
@@ -30,6 +31,8 @@ size_t FileDescriptorManager::initialize(const std::string& directory) {
         }
         closedir(dir);
         capacity = fileDescriptors_.size();
+        extern AlgorithmMng am;
+        am.ALL_DRONE_NUM = capacity;
         std::cout << "The number of fileDescriptors_ is: " << capacity << std::endl; // 打印 fileDescriptors_ 的容量
         return capacity;
     }
@@ -188,7 +191,7 @@ void consumeInCycque(const pps& first_moment, CircularQueue& queue) {
     }
 }
 
-void loadInCycque(const pps& first_moment, CircularQueue& queue) {                  // 循环队列装载线程 根据first_moment加上帧号
+void AlgorithmMng::loadInCycque(const pps& first_moment, CircularQueue& queue) {                  // 循环队列装载线程 根据first_moment加上帧号
 
     FileDescriptorManager manager;                                                  // 初始化FD管理器对象
     if (!manager.initialize("/mnt/sdcard/Dac_data100")) {                           // 初始化板载路径
@@ -212,7 +215,7 @@ void loadInCycque(const pps& first_moment, CircularQueue& queue) {              
         }
         queue.prt_count();    // buffer的容量监控打印 装满了不会装
         inner_frame.frame++;
-        // std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        // std::this_thread::sleep_for(std::chrono::milliseconds(5));               // enqueue和dequeue中会自动阻塞不用再sleep
     }
 }
 

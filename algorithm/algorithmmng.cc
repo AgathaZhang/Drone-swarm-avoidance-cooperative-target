@@ -37,7 +37,8 @@ void AlgorithmMng::start() {
     /** 补位新增*/
     logThread = std::thread(std::bind(&AlgorithmMng::inner_log, this));
     receiveThread = std::thread(std::bind(&AlgorithmMng::receive, this));           // 开启接收线程
-    //TODO 这里应该阻塞，直到收到指定补位ID号且类成员明确被赋值后才进行读文件操作
+    // 可以根据mavlink的命令字来确定
+    //TODO 重要:这里应该阻塞等待,直到收到指定补位ID号且类成员明确被赋值后才进行读文件线程,在receve中做操作或者mavlink_uart函数中做检查,这很重要,关系到同步,总之一定要开始收正常的数据之后再操作后续步骤
     loaderThread = std::thread(loadInCycque, std::ref(moment), std::ref(queue));    // 加载缓冲池
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));                   // 给点时间让ram装载
@@ -367,9 +368,9 @@ void AlgorithmMng::handleMsgFromDrone(mavlink_message_t *msg)
             mavlink_auto_filling_dance_t dance_cmd;
             mavlink_msg_auto_filling_dance_decode(msg, &dance_cmd);
             mtx_position.lock();
-            virtual_posi.x = (double)dance_cmd.x;
-            virtual_posi.y = (double)dance_cmd.y;
-            virtual_posi.z = (double)dance_cmd.z;
+            virtual_posi.x = (double)dance_cmd.pos[0];
+            virtual_posi.y = (double)dance_cmd.pos[1];
+            virtual_posi.z = (double)dance_cmd.pos[2];
             moment.frame = (unsigned int)dance_cmd.frame;
             mtx_position.unlock();
             // printf("x: %f,y: %fz: %fframe: %u\n", virtual_posi.x, virtual_posi.y, virtual_posi.z, moment.frame);
@@ -460,5 +461,28 @@ void AlgorithmMng::receive() {
         mavlink_message_t msg;
         handleMsgFromDrone(&msg);
         // std::this_thread::sleep_for(std::chrono::milliseconds(300)); 
+    }
+}
+
+void AlgorithmMng::send_guidance_data(Guide_vector& guider) {
+    mavlink_auto_filling_dance_t singleSend_msg;
+    size_t index = 0;
+    // TODO if 检测到guider.Update(); index从0开始
+    while (true) {
+        auto [guide, moment] = guider.read(); // 读取当前的 guide 和 moment
+        if (index >= guide.size()) {
+            break; // 如果已经访问完 guide 的所有元素，则退出循环
+        }
+
+        /** 发送的业务 */
+        singleSend_msg.pos[0] = static_cast<float>(guide[index].x);
+        singleSend_msg.pos[1] = static_cast<float>(guide[index].y);
+        singleSend_msg.pos[2] = static_cast<float>(guide[index].z);
+        send_planningPosition(&singleSend_msg);
+        printf("Success planning px:%f ,py:%f ,pz:%f\n", singleSend_msg.pos[0], singleSend_msg.pos[1], singleSend_msg.pos[2]);
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(33)); // 控制发送间隔为 33ms
+
+        index++; // 访问下一个元素
     }
 }
