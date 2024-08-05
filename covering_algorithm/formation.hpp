@@ -141,7 +141,7 @@ constraint()
         //   calcu_times(0),
         //   elapsed_time(0.0),
           constraint_speed{3.0},
-          collision_radius{0.4}
+          collision_radius{0.1}
         //   ALL_DRONE_NUM(0),
         //   success(2) 
 		{}
@@ -205,7 +205,7 @@ class FileDescriptorManager {
 public:
 	size_t capacity;
 
-    size_t initialize(const std::string& directory);
+    size_t initialize(const std::string& directory, int& DRONE_NUM);
     ~FileDescriptorManager();
     set3d getFramePosition(int index/*架次*/, const pps& frame);
     void listFiles() const;

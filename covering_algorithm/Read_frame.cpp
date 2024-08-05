@@ -7,7 +7,7 @@ double constraint_speed = 6;		// 速度约束
 double collision_radius = 1.4;		// 避碰半径
 // int ALL_DRONE_NUM = 1934;			// 飞机总数
 
-size_t FileDescriptorManager::initialize(const std::string& directory) {
+size_t FileDescriptorManager::initialize(const std::string& directory, int& DRONE_NUM) {
         DIR* dir = opendir(directory.c_str());
         if (dir == nullptr) {
             std::cerr << "Failed to open directory: " << strerror(errno) << std::endl;
@@ -31,8 +31,8 @@ size_t FileDescriptorManager::initialize(const std::string& directory) {
         }
         closedir(dir);
         capacity = fileDescriptors_.size();
-        extern AlgorithmMng am;
-        am.ALL_DRONE_NUM = capacity;
+        // extern AlgorithmMng am;
+        DRONE_NUM = capacity;                // 用友元操作AlgorithmMng 返回飞机总架次
         std::cout << "The number of fileDescriptors_ is: " << capacity << std::endl; // 打印 fileDescriptors_ 的容量
         return capacity;
     }
@@ -194,7 +194,8 @@ void consumeInCycque(const pps& first_moment, CircularQueue& queue) {
 void AlgorithmMng::loadInCycque(const pps& first_moment, CircularQueue& queue) {                  // 循环队列装载线程 根据first_moment加上帧号
 
     FileDescriptorManager manager;                                                  // 初始化FD管理器对象
-    if (!manager.initialize("/mnt/sdcard/Dac_data100")) {                           // 初始化板载路径
+    
+    if (!manager.initialize("/mnt/sdcard/Dac_data100", ALL_DRONE_NUM)) {                           // 初始化板载路径
     // if (!manager.initialize("../Dac_data")) {
         std::cerr << "Failed to initialize file descriptor manager" << std::endl;
         return ;

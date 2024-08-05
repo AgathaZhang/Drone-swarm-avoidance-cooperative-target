@@ -17,7 +17,7 @@
 
 
 class AlgorithmMng {
-    friend class FileDescriptorManager;
+    // friend class FileDescriptorManager;             // 用友元在FileDescriptorManager 返回飞机总架次 
 public:
     std::mutex mtx_position;                        // position 位置&时间数据锁
     // std::mutex mtx_guide_soket;                     // 预测向量锁(弃用)
@@ -27,26 +27,26 @@ public:
     // bool ready = false;
     // bool yes_change = false;
     bool guidance_phase = true;                     // 初始制导阶段
-    int guidance_time = 8;                          // 初始制导上升时间 s
+    int guidance_time = 3;                          // 初始制导上升时间 s
     double guidance_ascent_speed = 0.1;             // 初始上升速度 m/帧
 
-    int failPlanning_count = 0;                     // 解倒退次数    TODO 可以通过解终点方向判断解反向情况
+    int failPlanning_count = 0;                     // 解反向次数    TODO 可以通过解终点方向判断解反向情况
     bool inversePlanning = false;                   // 本次是否反向
-    int quadrantDrone_num;                          // 解品质
+    int bad_quadrantDrone_num = -1;                          // 解品质 连续倒退次数
     double solution_time;                           // 单次解算时间
     double endpoint_distance = 1000;                // 当前距离终端位置的距离
     double end_scope = 1;                           // 结束避障阶段的距离条件 1s内到达终点
     int danceFrame_rate = 30;                       // 舞步帧速率
-    bool is_send_dataInplanning = false;            // 规划阶段的发送线程 单拎出来
+    int densimeter = 0;                             // 局部hole密度
     
-    
-    int ID;                                         // 补位目标
+    int ALL_DRONE_NUM = 50000;			            // 飞机总数
+    int ID = 50000;                                 // 补位目标 初始化一个很大的ID 用以检测是否接收到正常ID
     pps moment;                                     // 实时帧
     constraint limit;                               // 约束
     vec3d virtual_posi;                             // 虚拟位置
     // std::vector<vec3d> guide;                       // 指导向量
     Guide_vector guider;                            // 封装 指导相邻 & 该向量生成基于的实时帧
-    bool termination = false;                               // 终止补位
+    bool termination = false;                       // 终止补位
     bool guide_finish = true;                       // 路径输出完成标志
     // set3d view_matrix;                              // 测试soket用到
     // bool isSorted = false;                          // 测试soket用到 用于指示数据是否已排序
@@ -74,11 +74,14 @@ public:
     void receive();
     void send_guidance_data(Guide_vector& guider);
     void loadInCycque(const pps& first_moment, CircularQueue& queue);
-    void planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失的droneID*/,const vec3d& position/*当前位置*/, Guide_vector& /*输出位置*/, const pps& moment/*时间戳*/, constraint limit/*飞机各类约束*/);
+    void planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失的droneID*/, const vec3d& position/*当前位置*//*, Guide_vector& /*输出位置*/, const pps& moment/*时间戳*/, constraint limit/*飞机各类约束*/);
     void Virtual_location(const Guide_vector& origin_guide/*当前指导向量*/, vec3d& virtual_posi/*当前虚拟位置*/, const pps& moment, const constraint limit);
 
 private:
-    int ALL_DRONE_NUM = 2000;			            // 飞机总数
+    
+    bool is_send_dataInplanning = false;            // 规划阶段的发送线程状态字 单拎出来
+    std::mutex is_send_dataInplanning_cv_mtx;       // 发送子线程锁
+    std::condition_variable is_send_dataInplanning_cv;  // 发送子线程条件变量
     void ImuThread();
     void DroneThread();
     void CalAccThread();

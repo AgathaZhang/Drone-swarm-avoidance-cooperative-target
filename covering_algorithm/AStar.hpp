@@ -50,6 +50,7 @@ namespace AStar
         void releaseNodes(NodeSet& nodes_);                             // 删除整个NodeSet,线性时间复杂度，vector后面的元素全部移动一次
 
     public:
+    CoordinateList direction, walls;            // TODO 临时观察
         Generator();
         void setWorldSize(Vec3i worldSize_);                            // 设置世界边界
         void setDiagonalMovement(bool enable_);                         // 启用对角线搜寻
@@ -62,7 +63,7 @@ namespace AStar
 
     private:
         HeuristicFunction heuristic;                // 格式 uint(Vec3i, Vec3i)
-        CoordinateList direction, walls;            // "方位""墙"均为std::vector<Vec3i>类型
+        // CoordinateList direction, walls;            // "方位""墙"均为std::vector<Vec3i>类型
         Vec3i worldSize;
         uint directions;
     };

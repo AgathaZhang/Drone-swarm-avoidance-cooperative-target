@@ -35,14 +35,15 @@ AlgorithmMng::~AlgorithmMng()
 void AlgorithmMng::start() {
     
     /** 补位新增*/
+    init_target();
     logThread = std::thread(std::bind(&AlgorithmMng::inner_log, this));
     receiveThread = std::thread(std::bind(&AlgorithmMng::receive, this));           // 开启接收线程
     // 可以根据mavlink的命令字来确定
     //TODO 重要:这里应该阻塞等待,直到收到指定补位ID号且类成员明确被赋值后才进行读文件线程,在receve中做操作或者mavlink_uart函数中做检查,这很重要,关系到同步,总之一定要开始收正常的数据之后再操作后续步骤
-    loaderThread = std::thread(loadInCycque, std::ref(moment), std::ref(queue));    // 加载缓冲池
+    loaderThread = std::thread(std::bind(&AlgorithmMng::loadInCycque, this, std::ref(moment), std::ref(queue)));    // 加载缓冲池
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));                   // 给点时间让ram装载
-    planningThread = std::thread(std::bind(&AlgorithmMng::planning, this, std::ref(queue), std::ref(ID)/*需要指定*/, std::ref(virtual_posi), std::ref(guider), std::ref(moment), limit));      // 输入当前位置 时间 输出期望位置guider(guide, moment)
+    planningThread = std::thread(std::bind(&AlgorithmMng::planning, this, std::ref(queue), std::ref(ID)/*需要指定*/, std::ref(virtual_posi)/*, std::ref(guider)*/, std::ref(moment), limit));      // 输入当前位置 时间 输出期望位置guider(guide, moment)
 
 
 
@@ -68,7 +69,10 @@ void AlgorithmMng::start() {
 void AlgorithmMng::stop() {
 
     /** 补位新增*/
+    logThread.join();
     receiveThread.join();
+    loaderThread.join();
+    planningThread.join();
 
 
 
@@ -422,8 +426,8 @@ void AlgorithmMng::init_target()
     // std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
     // ID = 911;                       // SN from 1 instead of 0
-    ID = 19;
-    moment = {5095};                  // 第95帧开始丢
+    ID = 6;
+    moment = {120};                  // 第95帧开始丢
     virtual_posi = {0, 0, 0};
     // virtual_posi = {7, 23, 335};
     // virtual_posi = {-160, 70, 150};
@@ -438,7 +442,7 @@ void AlgorithmMng::inner_log() {
     while (true) {
         static int count = 0;
         // std::lock_guard<std::mutex> lock(mtx_position); // 确保线程安全
-        printf("Recevinfo Count_NUM: %d x: %f,y: %fz: %fframe: %u\n",count, virtual_posi.x,virtual_posi.y,virtual_posi.z,moment.frame);
+                    // printf("Recevinfo Count_NUM: %d x: %f,y: %fz: %fframe: %u\n",count, virtual_posi.x,virtual_posi.y,virtual_posi.z,moment.frame);
         // printf("Planninginfo %d ", num_get);
 
         // 使用 shell 命令将日志信息追加到文件末尾
@@ -464,25 +468,37 @@ void AlgorithmMng::receive() {
     }
 }
 
-void AlgorithmMng::send_guidance_data(Guide_vector& guider) {
+void AlgorithmMng::send_guidance_data(Guide_vector& guider) {       // TODO if 检测到guider.Update(); index从0开始
+    printf("Subthread'@send_dataInplanning' is running\n");
+    printf("Subthread'@send_dataInplanning' is running\n");
+    printf("Subthread'@send_dataInplanning' is running\n");
+    printf("Subthread'@send_dataInplanning' is running\n");
+    printf("Subthread'@send_dataInplanning' is running\n");
     mavlink_auto_filling_dance_t singleSend_msg;
-    size_t index = 0;
-    // TODO if 检测到guider.Update(); index从0开始
+
     while (true) {
-        auto [guide, moment] = guider.read(); // 读取当前的 guide 和 moment
-        if (index >= guide.size()) {
-            break; // 如果已经访问完 guide 的所有元素，则退出循环
-        }
-
+        if (is_send_dataInplanning == false)break;
+        auto guide = guider.read().first; // 读取当前的 guide 和 moment
+        printf("guide.size: %d\n", guide.size());
+        printf("Subthread'@send_dataInplanning' outwhile!!!!!!!!!!!!!!!\n");
+        // auto moment = guider.read().second;
+        // 如果读取成功了 再执行 否则挂起等待？
         /** 发送的业务 */
-        singleSend_msg.pos[0] = static_cast<float>(guide[index].x);
-        singleSend_msg.pos[1] = static_cast<float>(guide[index].y);
-        singleSend_msg.pos[2] = static_cast<float>(guide[index].z);
-        send_planningPosition(&singleSend_msg);
-        printf("Success planning px:%f ,py:%f ,pz:%f\n", singleSend_msg.pos[0], singleSend_msg.pos[1], singleSend_msg.pos[2]);
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(33)); // 控制发送间隔为 33ms
-
-        index++; // 访问下一个元素
+        for (size_t index = 0; index < guide.size(); ++index){ // 如果已经访问完 guide 的所有元素，则退出循环  
+            printf("Subthread'@send_dataInplanning' innerfor!!!!!!!!!!!!!!!\n");
+            singleSend_msg.pos[0] = static_cast<float>(guide[index].x);
+            singleSend_msg.pos[1] = static_cast<float>(guide[index].y);
+            singleSend_msg.pos[2] = static_cast<float>(guide[index].z);
+            // send_planningPosition(&singleSend_msg);
+            printf("isPlanning px:%f ,py:%f ,pz:%f\n", singleSend_msg.pos[0], singleSend_msg.pos[1], singleSend_msg.pos[2]);
+            
+            std::this_thread::sleep_for(std::chrono::milliseconds(33)); // 控制发送间隔为 33ms
+            if(guider.is_Update_or_not() == true) break;
+            if (is_send_dataInplanning == false) break;
+        }
     }
+    // std::lock_guard<std::mutex> lk(is_send_dataInplanning_cv_mtx);
+    // is_send_dataInplanning_cv.notify_one();
+    printf("Subthread'@send_dataInplanning' is killed\n");
 }
+
