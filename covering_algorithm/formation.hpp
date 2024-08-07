@@ -225,7 +225,7 @@ public:
     bool isEmpty() const;
 	set3d invoking(size_t sequence, size_t index); 					// 访问以front开始的若干帧 内部调用方法
     int atomicity = 1; // atomicity==1的时候才能dequeue，这是为了路径规划算法途中的原子性，避免基于当前位置帧访问的未来若干帧的sequence数据发生错位，即，基于当前帧却用到了未来帧的障碍物
-	void prt_count(void){printf("cycbuffer count : %d \n", count_);}
+	void prt_count(int& giveToAlgorithmMng){printf("cycbuffer count : %d \n", count_);giveToAlgorithmMng = count_;}
 	size_t buffer_count_(void){return count_;}
 
 private:

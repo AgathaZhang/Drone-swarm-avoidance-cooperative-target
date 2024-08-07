@@ -20,9 +20,6 @@
 //     }
 // }
 
-
-
-
 // void receive(AlgorithmMng& am) {
 //     while (true)
 //     {   
@@ -147,7 +144,7 @@ void AlgorithmMng::Virtual_location(const Guide_vector& origin_guide/*当前指�
             if (elapsed.count() >= 2.0) {
             std::cout << "New position time: " << moment.frame << " pos: "<< virtual_posi.x << " " << virtual_posi.y << " " << virtual_posi.z << "\n";
             start = now; // 重置计时器
-}
+            }
             // cv.notify_one();
             // monitor(virtual_posi);// 已经在新开线程中检测 这里不需要显示调用 virtual_posi 不改变 那么把planning线程挂起
             // changed(virtual_posi);

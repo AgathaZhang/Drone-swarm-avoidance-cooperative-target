@@ -4,7 +4,6 @@
 #include "formation.hpp"
 #include "AStar.hpp"
 #include <mutex>
-// #include "algorithmmng.h"
 
 class Guide_vector {
 public:
@@ -40,13 +39,5 @@ private:
     mutable std::mutex mtx; // 保护更新操作的互斥锁
     bool updated = false; // 是否已更新的标志
 };
-
-
-// void receive(AlgorithmMng& am);
-
-// void timegoes(pps& moment);
-// void Virtual_location(const Guide_vector&, vec3d& virtual_posi, const pps& moment, const constraint limit);    // 虚拟位置 速度乘以指导向量 = 实际位置 速度用的是打卡速度 
-// void monitor(const vec3d& virtual_posi);
-// vec3d simu_position();  
 
 #endif
