@@ -11,7 +11,7 @@
 #include "AStar.hpp"
 #include "algorithmmng.h"
 
-void RGB_control(mavlink_auto_filling_dance_t& singleSend_msg, int phase){
+void RGB_control(mavlink_auto_filling_dance_t& singleSend_msg, int phase, set3d target = {0}){
 
     switch (phase)
     {
@@ -21,16 +21,16 @@ void RGB_control(mavlink_auto_filling_dance_t& singleSend_msg, int phase){
                 singleSend_msg.rgb[2] = 255;
     break;
     
-    case 2:
+    case 2:     /** 红光*/
         singleSend_msg.rgb[0] = 255;
             singleSend_msg.rgb[1] = 0;
                 singleSend_msg.rgb[2] = 0;
     break;
     
-    case 3:
-        singleSend_msg.rgb[0] = 0;
-            singleSend_msg.rgb[1] = 255;
-                singleSend_msg.rgb[2] = 0;
+    case 3:     /** 绿光*/
+        singleSend_msg.rgb[0] = target.R;
+            singleSend_msg.rgb[1] = target.G;
+                singleSend_msg.rgb[2] = target.B;
     break;
 
     }
@@ -239,7 +239,8 @@ void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失�
                 for (size_t i = 0; i < danceFrame_rate + margin; i++)                                               // TODO 应该设置成动态 向后找多少帧 60帧 这里根据速度约束在单次计算的平均时间开销来推断,尽量的小,避免时序上过长 wall堵塞造成无解的情况
                 {   
                     for (size_t j = 0; j < (ALL_DRONE_NUM - 1); j++)                                                // 检查看看是不是所有飞机都遍历到了
-                    {
+                    {   
+                        // printf("inner ALL_DRONE_NUM - 1 !!!!!!!!!!!!!!!:%d\n", j);
                         // vec3d dyschronism = SET3D_TO_VEC3D(matrix[frame-1+i][j]);                                // 时间上找到障碍帧
                         vec3d dyschronism = SET3D_TO_VEC3D(queue.invoking(frame + i, j));
                         auto range = manhattanDistance(position, dyschronism).first;    // 返回距离差 x+y+z
@@ -334,7 +335,7 @@ void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失�
             singleSend_msg.pos[0] = static_cast<float> (target.x);
             singleSend_msg.pos[1] = static_cast<float> (target.y);
             singleSend_msg.pos[2] = static_cast<float> (target.z);
-            RGB_control(singleSend_msg, 3);
+            RGB_control(singleSend_msg, 3, target);
             send_planningPosition(&singleSend_msg);
             printf("Endpoint px:%f ,py:%f ,pz:%f\n", singleSend_msg.pos[0], singleSend_msg.pos[1], singleSend_msg.pos[2]);
             std::this_thread::sleep_for(std::chrono::milliseconds(33));         // 动态休眠以降低CPU开销

@@ -18,7 +18,7 @@
 
 
 
-AlgorithmMng::AlgorithmMng() : queue(300)       // 在类初始化时 初始化sdcard中转buffer
+AlgorithmMng::AlgorithmMng() : queue(600)       // 在类初始化时 初始化sdcard中转buffer
 {   
 	mImuDevFd = -1;
 
@@ -52,7 +52,7 @@ void AlgorithmMng::start() {
 
      /** 补位新增*/
     // logThread = std::thread(std::bind(&AlgorithmMng::inner_log, this));
-    receiveThread = std::thread(std::bind(&AlgorithmMng::receive, this));           // 开启接收线程
+    // receiveThread = std::thread(std::bind(&AlgorithmMng::receive, this));           // 开启接收线程
 
     //重要:这里应该阻塞等待,直到收到指定补位ID号且类成员明确被赋值后才进行读文件线程,在receve中做操作或者mavlink_uart函数中做检查,这很重要,关系到同步,一旦补位开始全局时间流就不能停止，总之一定要开始收正常的数据之后再操作后续步骤 可以根据mavlink的命令字来确定
     while (dataReady == false)  // 阻塞监听 等待数据流正常
@@ -75,7 +75,7 @@ void AlgorithmMng::stop() {
     /** 补位新增*/
     planningThread.join();      // 这里join的顺序应该按线程结束释放的先后顺序 先释放的放在前
     loaderThread.join();
-    receiveThread.join();
+    // receiveThread.join();
     logThread.join();
 
 
@@ -480,7 +480,7 @@ void AlgorithmMng::receive() {
 }
 
 void AlgorithmMng::send_guidance_data(Guide_vector& guider) {       // TODO if 检测到guider.Update(); index从0开始
-    extern void RGB_control(mavlink_auto_filling_dance_t& singleSend_msg, int phase);
+    extern void RGB_control(mavlink_auto_filling_dance_t& singleSend_msg, int phase, set3d target = {0});
     mavlink_auto_filling_dance_t singleSend_msg;
 
     while (true) {

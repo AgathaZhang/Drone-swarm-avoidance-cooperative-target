@@ -16,13 +16,12 @@
 #include <arpa/inet.h>
 #include <fstream>
 #include <sstream>
+#include <regex>
 #include "aes.hpp"
 
 extern int start_frame;				// 开始补位动作帧
 extern double constraint_speed;		// 速度约束
 extern double collision_radius;		// 避碰半径
-// extern int ALL_DRONE_NUM;			// 飞机总数
-// extern bool guide;
 // extern AES_ctx ctx;
 // extern void AES_ECB_decrypt_buffer(struct AES_ctx* ctx, uint8_t* buf,uint32_t length);
 
@@ -103,9 +102,14 @@ struct set3d {
 	double	y;
 	double	z;
     unsigned int frame;
+	uint8_t	R;
+	uint8_t G;
+	uint8_t B;
+	uint8_t W;
+	
     // 带参构造函数
-    set3d(double x_val = 0, double y_val = 0, double z_val = 0, unsigned int frame_val = 0)
-        : x(x_val), y(y_val), z(z_val), frame(frame_val) {}
+    set3d(double x_val = 0, double y_val = 0, double z_val = 0, unsigned int frame_val = 0, uint8_t	R_val = 0, uint8_t G_val = 0, uint8_t B_val = 0, uint8_t W_val = 0)
+        : x(x_val), y(y_val), z(z_val), frame(frame_val), R(R_val), G(G_val), B(B_val), W(W_val) {}
 };
 
 typedef struct Mint Mint;
@@ -204,15 +208,16 @@ class drone
 class FileDescriptorManager {
 public:
 	size_t capacity;
-
+	std::vector<std::string> files;
     size_t initialize(const std::string& directory, int& DRONE_NUM);
     ~FileDescriptorManager();
     set3d getFramePosition(int index/*架次*/, const pps& frame);
     void listFiles() const;
 
 private:
-    std::unordered_map<int, int> fileDescriptors_;
-    std::vector<std::string> fileNames_;
+    std::vector<int> fileDescriptors_;
+    // std::vector<std::string> fileNames_;
+
 };
 
 class CircularQueue {
@@ -239,6 +244,43 @@ private:
     std::condition_variable cv_;
     
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // void Read_frame(std::vector<std::vector<set3d>>&);			// old declar
 // extern FileDescriptorManager manager;

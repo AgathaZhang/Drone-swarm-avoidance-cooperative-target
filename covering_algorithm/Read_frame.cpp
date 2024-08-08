@@ -7,59 +7,92 @@ double constraint_speed = 6;		// 速度约束
 double collision_radius = 1.4;		// 避碰半径
 // int ALL_DRONE_NUM = 1934;			// 飞机总数
 
-size_t FileDescriptorManager::initialize(const std::string& directory, int& DRONE_NUM) {
-        DIR* dir = opendir(directory.c_str());
-        if (dir == nullptr) {
-            std::cerr << "Failed to open directory: " << strerror(errno) << std::endl;
-            return 0;
-        }
+static bool naturalOrderCompare(const std::string& a, const std::string& b) {
+    std::regex re("(\\d+)");
+    std::smatch match_a, match_b;
 
-        struct dirent* entry;
-        int index = 0;
-        while ((entry = readdir(dir)) != nullptr) {
-            if (entry->d_type == DT_REG) {
-                std::string filePath = directory + "/" + entry->d_name;
-                int fd = open(filePath.c_str(), O_RDWR);
-                if (fd == -1) {
-                    std::cerr << "Failed to open file: " << filePath << " - " << strerror(errno) << std::endl;
-                    continue;
-                }
-                fileDescriptors_[index] = fd;
-                fileNames_.push_back(filePath);
-                index++;
-            }
+    std::regex_search(a, match_a, re);
+    std::regex_search(b, match_b, re);
+
+    if (!match_a.empty() && !match_b.empty()) {
+        int num_a = std::stoi(match_a[0]);
+        int num_b = std::stoi(match_b[0]);
+
+        if (num_a != num_b) {
+            return num_a < num_b;
         }
-        closedir(dir);
-        capacity = fileDescriptors_.size();
-        // extern AlgorithmMng am;
-        DRONE_NUM = capacity;                // 用友元操作AlgorithmMng 返回飞机总架次
-        std::cout << "The number of fileDescriptors_ is: " << capacity << std::endl; // 打印 fileDescriptors_ 的容量
-        return capacity;
     }
+
+    return a < b;
+}
+
+size_t FileDescriptorManager::initialize(const std::string& directory, int& DRONE_NUM) {
+    DIR* dir = opendir(directory.c_str());
+    if (dir == nullptr) {
+        std::cerr << "Failed to open directory: " << strerror(errno) << std::endl;
+        return 0;
+    }
+
+    struct dirent* entry;
+
+    while ((entry = readdir(dir)) != nullptr) {
+        if (entry->d_type == DT_REG) {
+            std::string filePath = directory + "/" + entry->d_name;
+            files.push_back(filePath);
+        }
+    }
+    closedir(dir);
+    capacity = files.size();
+    DRONE_NUM = capacity;       // 用友元操作AlgorithmMng 返回飞机总架次
+    // printf("FD allnumber!!!!!!!!!!!!!!!:%d\n", capacity);
+
+    // Sort files by name
+    std::sort(files.begin(), files.end(), naturalOrderCompare);
+    // std::cout << "After sort name:" << std::endl;
+    // for (const auto& filePath : files) {
+    //     std::cout << filePath << std::endl;
+    // }
+/** 
+    int index = 0;
+    for (const auto& filePath : files) {
+        int fd = open(filePath.c_str(), O_RDWR);
+        if (fd == -1) {
+            std::cerr << "Failed to open file: " << filePath << " - " << strerror(errno) << std::endl;
+            continue;
+        }
+        fileDescriptors_.push_back(fd);
+        // fileNames_.push_back(filePath);
+        index++;
+    }
+*/
+
+    std::cout << "The number of fileDescriptors_ is: " << capacity << std::endl; // 打印 fileDescriptors_ 的容量
+    return capacity;
+}
 
 FileDescriptorManager::~FileDescriptorManager() {
-        for (auto& entry : fileDescriptors_) {
-            close(entry.second);
-        }
+    for (int fd : fileDescriptors_) {
+        close(fd); // 关闭文件描述符
     }
+}
 
 set3d FileDescriptorManager::getFramePosition(int index/*架次*/, const pps& frame/*, AES_ctx& ctx*/) {
         
         // printf("FD_num is %d \n", fileDescriptors_[index]);
-        set3d position;
+        set3d Each_POS_and_RGB;
         off_t offset_origin = (frame.frame) * 22 + 46 + 1;                // 设置偏移
-        // off_t offset_origin = 0;
+        off_t offset_origin_RGB = 0;
         // off_t offset = 46 + (frame - 1) * 22 + 1; // 46-byte header, 22-byte frame, +1 for stx
 
-        if (fileDescriptors_.find(index) == fileDescriptors_.end()) {
+        if (index < 0 || index >= fileDescriptors_.size()) {
             std::cerr << "Drone index Not in the container" << std::endl;
-            return position;}
+            return Each_POS_and_RGB;}
 
         /** 读取块*/
-        float pos[3];
-        ssize_t bytesRead = pread(fileDescriptors_[index], reinterpret_cast<char*>(pos), sizeof(pos), offset_origin);
+        float pos_And_rgb[4];
+        ssize_t bytesRead = pread(fileDescriptors_[index], reinterpret_cast<char*>(pos_And_rgb), sizeof(pos_And_rgb), offset_origin);
         // printf("bytesRead: %zd \n", bytesRead);
-        if (bytesRead != sizeof(pos)) {std::cerr << "incomplete read" << std::endl;return position;}        // TODO 这里要加锁
+        if (bytesRead != sizeof(pos_And_rgb)) {std::cerr << "incomplete read" << std::endl;return Each_POS_and_RGB;}        // TODO 这里要加锁
 
         // /** 打印源数据*/printf("------------------------------------------- origin hex data\n"); 
         // for (int i = 0; i < 1024; ++i) {
@@ -79,22 +112,30 @@ set3d FileDescriptorManager::getFramePosition(int index/*架次*/, const pps& fr
         // }std::cout << std::endl;
 
         /** Convert to vector for returning*/
-        position.x = pos[0];
-        position.y = pos[1];
-        position.z = pos[2];
-        position.frame = frame.frame;       // 注意这里的帧偏移是从0序开始的
-        // printf("num_x %f\n",position.x);
-        // printf("num_y %f\n",position.y);
-        // printf("num_z %f\n",position.z);
-        // printf("num_frame %d\n",position.frame);
-        return position;
+        Each_POS_and_RGB.frame = frame.frame;       // 注意这里的帧偏移是从0序开始的
+        Each_POS_and_RGB.x = pos_And_rgb[0];
+        Each_POS_and_RGB.y = pos_And_rgb[1];
+        Each_POS_and_RGB.z = pos_And_rgb[2];
+        uint8_t RGBW[4];
+        std::memcpy(RGBW, &pos_And_rgb[3], sizeof(float));
+
+        Each_POS_and_RGB.R = RGBW[0];
+        Each_POS_and_RGB.G = RGBW[1];
+        Each_POS_and_RGB.B = RGBW[2];
+        Each_POS_and_RGB.W = RGBW[3];
+        
+        // printf("num_x %f\n",Each_POS_and_RGB.x);
+        // printf("num_y %f\n",Each_POS_and_RGB.y);
+        // printf("num_z %f\n",Each_POS_and_RGB.z);
+        // printf("num_frame %d\n",Each_POS_and_RGB.frame);
+        return Each_POS_and_RGB;
     }
 
-void FileDescriptorManager::listFiles() const {
-        for (size_t i = 0; i < fileNames_.size(); ++i) {
-            std::cout << i << ": " << fileNames_[i] << std::endl;
-        }
-    }
+// void FileDescriptorManager::listFiles() const {
+//         for (size_t i = 0; i < fileNames_.size(); ++i) {
+//             std::cout << i << ": " << fileNames_[i] << std::endl;
+//         }
+//     }
 
 CircularQueue::CircularQueue(size_t size) : size_(size), front_(0), tail_(0), count_(0), atomicity(1) {
     queue_.resize(size_);
@@ -174,10 +215,19 @@ std::vector<set3d> Read_frame(const pps& frame, FileDescriptorManager& manager) 
 
     std::vector<set3d> current_sequence;
     // set3d position = manager.getFramePosition(4, frame);  // 单架fd测试
-    for (size_t i = 0; i < manager.capacity; i++)
-    {
-        set3d position = manager.getFramePosition(i, frame);
+    for (int i = 0; i < manager.capacity; i++)
+    {   
+        int fd = open(manager.files[i].c_str(), O_RDWR);
+        if (fd == -1) {
+        std::cerr << "Failed to open file: " << manager.files[i] << " - " << strerror(errno) << std::endl;
+        break;
+        }
+        set3d position = manager.getFramePosition(fd, frame);
         current_sequence.push_back(position);
+        if (close(fd) == -1) {
+            std::cerr << "Failed to close file." << std::endl;
+        continue;
+        } 
     }
     
     return current_sequence;

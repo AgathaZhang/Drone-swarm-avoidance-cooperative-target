@@ -101,12 +101,13 @@ private:
 private:
     /** 补位线程 */
     std::thread logThread;
-    std::thread receiveThread;
+    // std::thread receiveThread;
     std::thread timeThread;
     std::thread loaderThread;
     std::thread planningThread;
     std::thread VirtualdroneThread;
     std::thread send_dataInplanning;
+    std::thread exception_handlingThread;
 
 
     /** 其他线程*/
