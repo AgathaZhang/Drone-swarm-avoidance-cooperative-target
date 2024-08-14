@@ -51,8 +51,8 @@ void AlgorithmMng::start() {
 
 
      /** 补位新增*/
-    // logThread = std::thread(std::bind(&AlgorithmMng::inner_log, this));
-    // receiveThread = std::thread(std::bind(&AlgorithmMng::receive, this));           // 开启接收线程
+    logThread = std::thread(std::bind(&AlgorithmMng::inner_log, this));
+    receiveThread = std::thread(std::bind(&AlgorithmMng::receive, this));           // 开启接收线程
 
     //重要:这里应该阻塞等待,直到收到指定补位ID号且类成员明确被赋值后才进行读文件线程,在receve中做操作或者mavlink_uart函数中做检查,这很重要,关系到同步,一旦补位开始全局时间流就不能停止，总之一定要开始收正常的数据之后再操作后续步骤 可以根据mavlink的命令字来确定
     while (dataReady == false)  // 阻塞监听 等待数据流正常
@@ -75,7 +75,7 @@ void AlgorithmMng::stop() {
     /** 补位新增*/
     planningThread.join();      // 这里join的顺序应该按线程结束释放的先后顺序 先释放的放在前
     loaderThread.join();
-    // receiveThread.join();
+    receiveThread.join();
     logThread.join();
 
 
@@ -351,7 +351,7 @@ void AlgorithmMng::DroneThread()
 
 void AlgorithmMng::handleMsgFromDrone(mavlink_message_t *msg)
 {   
-    // printf("Listen mavlink!!!!!!!!\n");
+    
 	switch (msg->msgid)
 	{
 		case MAVLINK_MSG_ID_REPORT_STATS:
@@ -371,19 +371,23 @@ void AlgorithmMng::handleMsgFromDrone(mavlink_message_t *msg)
         
         case MAVLINK_MSG_ID_auto_filling_dance:
         {   
-
+            // printf("Case in success mavlink!!!!!!!!\n");
             mavlink_auto_filling_dance_t dance_cmd;
             mavlink_msg_auto_filling_dance_decode(msg, &dance_cmd);
             mtx_position.lock();
             virtual_posi.x = (double)dance_cmd.pos[0];
             virtual_posi.y = (double)dance_cmd.pos[1];
             virtual_posi.z = (double)dance_cmd.pos[2];
+            velocity.x = (double)dance_cmd.acc[0];
+            velocity.y = (double)dance_cmd.acc[1];
+            velocity.z = (double)dance_cmd.acc[2];
             moment.frame = (unsigned int)dance_cmd.frame;
             ID = dance_cmd.drone_id;
             // termination = (int)dance_cmd.res;        // 终止补位字
             mtx_position.unlock();
             // printf("dataReady111 :%d\n",dataReady);
-            if (dataReady == false){dataReady = true;printf("enter re_cv\n");} 
+            if (dataReady == false){dataReady = true;printf("enter MAVLINK_MSG_ID_auto_filling_dance\n");} 
+            if (dataReady == false){dataReady = true;printf("dataReady = true\n");} 
             // printf("dataReady222 :%d\n",dataReady);
             // printf("x: %f,y: %fz: %fframe: %u\n", virtual_posi.x, virtual_posi.y, virtual_posi.z, moment.frame);
 
@@ -453,9 +457,11 @@ void AlgorithmMng::inner_log() {
     while (true) {
         static int count = 0;
         // std::lock_guard<std::mutex> lock(mtx_position); // 确保线程安全
-        printf("Recevinfo countnum: %d x: %f,y: %fz: %fframe: %u\n",count, virtual_posi.x,virtual_posi.y,virtual_posi.z,moment.frame);
-        // printf("Planninginfo  %d\n", );
-
+        printf("RCinfo: %d ID: %dx: %fy: %fz: %fvx: %fvy: %fvz: %fframe: %u",count, ID, virtual_posi.x, virtual_posi.y, virtual_posi.z, velocity.x, velocity.y, velocity.z, moment.frame);
+        printf("PRinfo: %d prx: %fpry: %fprz: %f",count, pos_predict.x, pos_predict.y, pos_predict.z);
+        printf("PLinfo: %d inversePlanning: %d  densimeter: %d  failPlanning_count: %d  bad_quadrantDrone_num: %d  endpoint_distance: %f  solution_time: %f",count, inversePlanning, densimeter, failPlanning_count, bad_quadrantDrone_num, endpoint_distance, solution_time);
+        printf("CYinfo: %d actualIndex: %d\n",count, queue.actualIndexx);
+        // printf("guiderUP: %d updated: %d\n",count, guider.updated);
         // 使用 shell 命令将日志信息追加到文件末尾
         // char command[512];
         // snprintf(command, sizeof(command),
@@ -465,7 +471,7 @@ void AlgorithmMng::inner_log() {
         // system(command);
 
         count++;
-        std::this_thread::sleep_for(std::chrono::milliseconds(500)); // 每500毫秒打印一次
+        std::this_thread::sleep_for(std::chrono::milliseconds(100)); // 每500毫秒打印一次
     }
 }
 
@@ -482,20 +488,21 @@ void AlgorithmMng::receive() {
 void AlgorithmMng::send_guidance_data(Guide_vector& guider) {       // TODO if 检测到guider.Update(); index从0开始
     extern void RGB_control(mavlink_auto_filling_dance_t& singleSend_msg, int phase, set3d target = {0});
     mavlink_auto_filling_dance_t singleSend_msg;
-
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));   // 等一秒
     while (true) {
         if (is_send_dataInplanning == false)break;
         auto guide = guider.read().first; // 读取当前的 guide 和 moment
-        printf("guide.size: %d\n", guide.size());
+        // const vec3d virtual_posi_atom = virtual_posi;
+        printf("guide.size: %d ", guide.size());
         // auto moment = guider.read().second;
         // 如果读取成功了 再执行 否则挂起等待？
         /** 发送的业务 */
         for (size_t index = 0; index < guide.size(); ++index){ // 如果已经访问完 guide 的所有元素，则退出循环  
-            printf("Subthread'@send_dataInplanning' innerfor!!!!!!!!!!!!!!!\n");
-            printf("inner index%d\n", index);
-            singleSend_msg.pos[0] = static_cast<float>(guide[index].x);
-            singleSend_msg.pos[1] = static_cast<float>(guide[index].y);
-            singleSend_msg.pos[2] = static_cast<float>(guide[index].z);
+            // printf("Subthread'@send_dataInplanning' innerfor!!!!!!!!!!!!!!!\n");
+            printf("inner index%d  ", index);
+            singleSend_msg.pos[0] = static_cast<float>(/*virtual_posi_atom.x + */guide[index].x);        // 给出当前位置未来增量
+            singleSend_msg.pos[1] = static_cast<float>(/*virtual_posi_atom.y + */guide[index].y);
+            singleSend_msg.pos[2] = static_cast<float>(/*virtual_posi_atom.z + */guide[index].z);
             RGB_control(singleSend_msg, 2);
             send_planningPosition(&singleSend_msg);
             printf("isPlanning px:%f ,py:%f ,pz:%f\n", singleSend_msg.pos[0], singleSend_msg.pos[1], singleSend_msg.pos[2]);

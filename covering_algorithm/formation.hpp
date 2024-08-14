@@ -17,7 +17,18 @@
 #include <fstream>
 #include <sstream>
 #include <regex>
+#include <thread>
+#include <chrono>
+#include <cstdlib>
 #include "aes.hpp"
+
+// #include <winsock2.h>
+// #include <ws2tcpip.h>             // && 临时注释 linux上需要修改此项为兼容的库
+// #include <sys/socket.h>           // && 临时注释
+// #include <arpa/inet.h>
+// #include "covering_algorithm/formation.hpp"
+// #include "covering_algorithm/planning.hpp"
+// #pragma comment(lib, "Ws2_32.lib")
 
 extern int start_frame;				// 开始补位动作帧
 extern double constraint_speed;		// 速度约束
@@ -216,6 +227,7 @@ public:
 
 private:
     std::vector<int> fileDescriptors_;
+	std::mutex readSDcard_mutex;
     // std::vector<std::string> fileNames_;
 
 };
@@ -230,8 +242,9 @@ public:
     bool isEmpty() const;
 	set3d invoking(size_t sequence, size_t index); 					// 访问以front开始的若干帧 内部调用方法
     int atomicity = 1; // atomicity==1的时候才能dequeue，这是为了路径规划算法途中的原子性，避免基于当前位置帧访问的未来若干帧的sequence数据发生错位，即，基于当前帧却用到了未来帧的障碍物
-	void prt_count(int& giveToAlgorithmMng){printf("cycbuffer count : %d \n", count_);giveToAlgorithmMng = count_;}
+	void prt_count(int& giveToAlgorithmMng){/*printf("cycbuffer count : %d \n", count_);*/giveToAlgorithmMng = count_;}
 	size_t buffer_count_(void){return count_;}
+	size_t actualIndexx;
 
 private:
     size_t size_;       // 容量

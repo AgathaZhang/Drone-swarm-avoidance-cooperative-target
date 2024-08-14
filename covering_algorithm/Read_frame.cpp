@@ -44,7 +44,6 @@ size_t FileDescriptorManager::initialize(const std::string& directory, int& DRON
     closedir(dir);
     capacity = files.size();
     DRONE_NUM = capacity;       // 用友元操作AlgorithmMng 返回飞机总架次
-    // printf("FD allnumber!!!!!!!!!!!!!!!:%d\n", capacity);
 
     // Sort files by name
     std::sort(files.begin(), files.end(), naturalOrderCompare);
@@ -52,7 +51,7 @@ size_t FileDescriptorManager::initialize(const std::string& directory, int& DRON
     // for (const auto& filePath : files) {
     //     std::cout << filePath << std::endl;
     // }
-/** 
+// /** 
     int index = 0;
     for (const auto& filePath : files) {
         int fd = open(filePath.c_str(), O_RDWR);
@@ -64,7 +63,7 @@ size_t FileDescriptorManager::initialize(const std::string& directory, int& DRON
         // fileNames_.push_back(filePath);
         index++;
     }
-*/
+// */
 
     std::cout << "The number of fileDescriptors_ is: " << capacity << std::endl; // 打印 fileDescriptors_ 的容量
     return capacity;
@@ -81,18 +80,42 @@ set3d FileDescriptorManager::getFramePosition(int index/*架次*/, const pps& fr
         // printf("FD_num is %d \n", fileDescriptors_[index]);
         set3d Each_POS_and_RGB;
         off_t offset_origin = (frame.frame) * 22 + 46 + 1;                // 设置偏移
-        off_t offset_origin_RGB = 0;
         // off_t offset = 46 + (frame - 1) * 22 + 1; // 46-byte header, 22-byte frame, +1 for stx
 
         if (index < 0 || index >= fileDescriptors_.size()) {
             std::cerr << "Drone index Not in the container" << std::endl;
             return Each_POS_and_RGB;}
 
-        /** 读取块*/
         float pos_And_rgb[4];
-        ssize_t bytesRead = pread(fileDescriptors_[index], reinterpret_cast<char*>(pos_And_rgb), sizeof(pos_And_rgb), offset_origin);
-        // printf("bytesRead: %zd \n", bytesRead);
+        /** 读取块 互斥锁方式*/
+        // {
+        // std::unique_lock<std::mutex> lock(readSDcard_mutex);
+        // ssize_t bytesRead = pread(fileDescriptors_[index], reinterpret_cast<char*>(pos_And_rgb), sizeof(pos_And_rgb), offset_origin);
+        // if (bytesRead != sizeof(pos_And_rgb)) {std::cerr << "incomplete read!!" << std::endl;return Each_POS_and_RGB;}        // TODO 这里要加锁
+        // }
+
+        /** 读取块循环调用 pread方式*/
+
+        ssize_t bytesRead = 0;
+        // int countinner = 0;      // 用于计数拼接读取了多少次
+        while (bytesRead < sizeof(pos_And_rgb)) {
+        // countinner++;
+        // printf("index: %d bytesRead :%d sizeof(pos_And_rgb):%d offset_origin:%d\n",index, bytesRead, sizeof(pos_And_rgb),offset_origin);
+        ssize_t result = pread(fileDescriptors_[index], reinterpret_cast<char*>(&pos_And_rgb) + bytesRead, sizeof(pos_And_rgb) - bytesRead, offset_origin + bytesRead);
+        if (result == -1) {
+            std::cerr << "Error reading file: " << strerror(errno) << std::endl;
+            break; // 错误时跳出循环，避免死循环
+        }
+        if (result == 0) {
+            std::cerr << "End of file reached unexpectedly maybe frame outoff full dancestep?" << std::endl;
+            break; // 读取到文件末尾时跳出循环
+        }
+            bytesRead += result;
+
+    }
         if (bytesRead != sizeof(pos_And_rgb)) {std::cerr << "incomplete read" << std::endl;return Each_POS_and_RGB;}        // TODO 这里要加锁
+        // printf("bytesRead: %zd \n", bytesRead);
+
 
         // /** 打印源数据*/printf("------------------------------------------- origin hex data\n"); 
         // for (int i = 0; i < 1024; ++i) {
@@ -142,7 +165,7 @@ CircularQueue::CircularQueue(size_t size) : size_(size), front_(0), tail_(0), co
 }
 
 bool CircularQueue::enqueue(const std::vector<set3d>& item) {
-    std::unique_lock<std::mutex> lock(mutex_enqueue_dequeue_);
+    std::unique_lock<std::mutex> lock(mutex_enqueue_dequeue_);      // TODO 暂时去掉mutex_enqueue_dequeue_锁
     cv_.wait(lock, [this] { return count_ < size_; });
     queue_[tail_] = item;
     tail_ = (tail_ + 1) % size_;
@@ -152,12 +175,14 @@ bool CircularQueue::enqueue(const std::vector<set3d>& item) {
 }
 
 bool CircularQueue::dequeue(std::vector<set3d>& item/*取的最后一帧实体*/, size_t moment_sequence/*当前到哪一帧了*/) {
-    std::unique_lock<std::mutex> lock(mutex_enqueue_dequeue_);
+    std::unique_lock<std::mutex> lock(mutex_enqueue_dequeue_);      // TODO 暂时去掉mutex_enqueue_dequeue_锁
     cv_.wait(lock, [this] { return count_ > 0 && atomicity == 1; });
-
+    // int count = 0;
     while (true) {
         // 解锁以调用invoking
         // lock.unlock();
+        // count++;
+        // printf("here is %d",count);
         set3d tempItem = invoking(0/* 表示头位置*/, 1/*表示该系列选一个FD*/);       // TODO 这里的索引有点问题 这里可以用invoking随意访问
         // lock.lock();
 
@@ -191,18 +216,20 @@ bool CircularQueue::isEmpty() const {
     std::unique_lock<std::mutex> lock(mutex_enqueue_dequeue_);
     return count_ == 0;
 }
-
-set3d CircularQueue::invoking(size_t sequence/*时间帧*/, size_t index/*架次*/) {
+// 用法 set3d target = queue.invoking(frame, (ID-1)); 
+set3d CircularQueue::invoking(size_t sequence/*时间帧*/, size_t index/*架次*/) {        // 是否没有设置循环到头部
     // std::unique_lock<std::mutex> lock(mutex_dequeue_invoking_);
     size_t actualIndex = (front_ + sequence) % size_;
-    if (actualIndex >= count_) {
-        std::cerr << "Error: Sequence index out of range. actualIndex: " << actualIndex << ", count_: " << count_ << std::endl;
-        throw std::out_of_range("Sequence index out of range");
-    }
-    if (index >= queue_[actualIndex].size()) {
-        std::cerr << "Error: Inner vector index out of range. index: " << index << ", inner vector size: " << queue_[actualIndex].size() << std::endl;
-        throw std::out_of_range("Inner vector index out of range");
-    }
+    // if (actualIndex >= count_) {printf("out of range Frame is : %d\n", sequence);}
+    // if (actualIndex >= count_) {                    // 帧超纲
+    //     std::cerr << "Error: Sequence index out of range. actualIndex: " << actualIndex << ", count_: " << count_ << std::endl;
+    //     throw std::out_of_range("Sequence index out of range");
+    // }
+    // if (index >= queue_[actualIndex].size()) {      // 架次超纲
+    //     std::cerr << "Error: Inner vector index out of range. index: " << index << ", inner vector size: " << queue_[actualIndex].size() << std::endl;
+    //     throw std::out_of_range("Inner vector index out of range");
+    // }
+    actualIndexx = actualIndex;
     return queue_[actualIndex][index];
 }
 
@@ -217,29 +244,29 @@ std::vector<set3d> Read_frame(const pps& frame, FileDescriptorManager& manager) 
     // set3d position = manager.getFramePosition(4, frame);  // 单架fd测试
     for (int i = 0; i < manager.capacity; i++)
     {   
-        int fd = open(manager.files[i].c_str(), O_RDWR);
-        if (fd == -1) {
-        std::cerr << "Failed to open file: " << manager.files[i] << " - " << strerror(errno) << std::endl;
-        break;
-        }
-        set3d position = manager.getFramePosition(fd, frame);
+        // int fd = open(manager.files[i].c_str(), O_RDWR);
+        // if (fd == -1) {
+        // std::cerr << "Failed to open file: " << manager.files[i] << " - " << strerror(errno) << std::endl;
+        // break;
+        // }
+        set3d position = manager.getFramePosition(/*fd*/i, frame);
         current_sequence.push_back(position);
-        if (close(fd) == -1) {
-            std::cerr << "Failed to close file." << std::endl;
-        continue;
-        } 
+        // if (close(fd) == -1) {
+        //     std::cerr << "Failed to close file." << std::endl;
+        // continue;
+        // } 
     }
-    
+    // printf("finish one pushback frame\n");
     return current_sequence;
 
 }
 
-void consumeInCycque(const pps& first_moment, CircularQueue& queue) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));        // 给点时间让buffer装到超前的帧 防止死锁
-    while (true) {
-       queue.dequeue(first_moment.frame);
-    }
-}
+// void consumeInCycque(const pps& first_moment, CircularQueue& queue) {
+//     std::this_thread::sleep_for(std::chrono::milliseconds(1000));        // 给点时间让buffer装到超前的帧 防止死锁
+//     while (true) {
+//        queue.dequeue(first_moment.frame);
+//     }
+// }
 
 void AlgorithmMng::loadInCycque(const pps& first_moment, CircularQueue& queue) {                  // 循环队列装载线程 根据first_moment加上帧号
 
@@ -259,11 +286,11 @@ void AlgorithmMng::loadInCycque(const pps& first_moment, CircularQueue& queue) {
         // std::this_thread::sleep_for(std::chrono::milliseconds(1)); 
         std::vector<set3d> current_sequence = Read_frame(inner_frame, manager);    // TODO manager改为引用传递 读出单个序列
         // if (!queue.isFull())// 不需要额外检查了
-        {   
+        // {   
             // printf("load frame now :%d \n",current_sequence[1].frame);
             queue.enqueue(current_sequence);                                        // 每个序列添加到队列
             // queue.dequeue(first_moment.frame);
-        }
+        // }
         queue.prt_count(cycbuffer_residue);    // buffer的容量监控打印 装满了不会装
         inner_frame.frame++;
         // std::this_thread::sleep_for(std::chrono::milliseconds(5));               // enqueue和dequeue中会自动阻塞不用再sleep

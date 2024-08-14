@@ -24,6 +24,8 @@ public:
     pps moment = 0;                                 // 当前实时帧
     constraint limit;                               // 最大合速度 避碰半径 量化步长约束
     vec3d virtual_posi = {0, 0, 0};                 // 虚拟位置
+    vec3d velocity = {0, 0, 0};                     // 实时速度
+    vec3d pos_predict = {0, 0, 0};                  // 预测位置
     Guide_vector guider;                            // 制导向量 & 基于的实时帧
     CircularQueue queue;                            // 保证SDcard读写读写充盈
 
@@ -48,6 +50,7 @@ public:
     void loadInCycque(const pps& first_moment, CircularQueue& queue);
     void planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失的droneID*/, const vec3d& position/*当前位置*//*, Guide_vector& /*输出位置*/, const pps& moment/*时间戳*/, constraint limit/*飞机各类约束*/);    // 虚拟位置 速度乘以指导向量 = 实际位置 速度用的是打卡速度 
     void exception_handling();
+    void Pos_estimator();              // 位置预测
     // void closureexpand(void);       // 单连通域闭包扩增
 
     /** 补位仿真 */
@@ -58,14 +61,14 @@ public:
 private:
     /** 先导段*/   /** 避障段*/   /** 末端段*/ 
     bool guidance_phase = true;                     // 初始制导阶段
-    int guidance_time = 3;                          // 初始制导上升时间 s
-    double guidance_ascent_speed = 0.1;             // 初始上升速度 m/帧
+    int guidance_time = 2;                          // 初始制导上升时间 s
+    double guidance_ascent_speed = 1.5;             // 初始上升速度 m/帧
 
     bool inversePlanning = false;                   // 本次路径是否反向
     int densimeter = 0;                             // 局部hole密度
     int failPlanning_count = 0;                     // 解反向次数    TODO 可以通过解终点方向判断解反向情况
     int bad_quadrantDrone_num = -1;                 // 解品质 连续倒退次数
-    double solution_time;                           // 单次解算时间
+    double solution_time = 0;                       // 单次解算时间
     double endpoint_distance = 1000;                // 当前距离终端位置的距离
     double end_scope = 1;                           // 结束避障阶段的距离条件 剩1s内到达终点
     
@@ -75,9 +78,11 @@ private:
     bool guide_finish = false;                      // 路径输出完成标志
 
     int cycbuffer_residue;                          // cycbuffer 剩余
+    int sleep_time = 500;                           // 单次计算后的睡眠时间
     int margin = 20;                                // 时空上的障碍飞机裕量
     int danceFrame_rate = 30;                       // 舞步帧速率
     int force_entern_endpoint = 10;                 // 强制进入末端舞步时间(测试用)
+    double sleep_seconds;                           // 由上面sleep_time转换成的double秒
     bool is_send_dataInplanning = false;            // 规划阶段的发送线程控制状态字
     std::mutex dataReady_mtx;                       // 数据流正常 启动阻塞锁(弃用)
     std::mutex mtx_position;                        // position & frame 时空数据锁
@@ -101,7 +106,7 @@ private:
 private:
     /** 补位线程 */
     std::thread logThread;
-    // std::thread receiveThread;
+    std::thread receiveThread;
     std::thread timeThread;
     std::thread loaderThread;
     std::thread planningThread;

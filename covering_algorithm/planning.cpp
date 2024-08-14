@@ -169,10 +169,25 @@ std::vector<vec3d> segmentVector(const vec3d& start, const vec3d& end, double l,
     return segments;
 }
 
+void AlgorithmMng::Pos_estimator(void){
+
+   pos_predict.x = virtual_posi.x + (velocity.x * solution_time);
+   pos_predict.y = virtual_posi.y + (velocity.y * solution_time);
+   pos_predict.z = virtual_posi.z + (velocity.z * solution_time);
+    
+//    pos_predict.x = virtual_posi.x + (velocity.x * (solution_time + sleep_seconds));       // 速度 * 0.5s后的时间 = 预测位置 (这么做肯定不精准)
+//    pos_predict.y = virtual_posi.y + (velocity.y * (solution_time + sleep_seconds));
+//    pos_predict.z = virtual_posi.z + (velocity.z * (solution_time + sleep_seconds));
+   
+}
 
 /**  分为先导段 避障段 末端段 */
 void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失的droneID*/, const vec3d& origin_position/*当前位置*//*, Guide_vector& sub_guider/*输出指导向量*/, const pps& origin_moment/*时间戳*/, constraint limit/*飞机各类约束*/)
 {   
+    // std::chrono::milliseconds duration(sleep_time);     // 用于速度积分初始化 将 duration 转换为秒
+    // std::chrono::duration<double> duration_in_seconds = duration;
+    // sleep_seconds = duration_in_seconds.count();       // 用于速度积分初始化获取秒数
+
     // bool enter_endingpoint = false;     // 强制进入endingpoint测试用
     // static int cont_planning = 0;       // 强制进入endingpoint测试用
     const auto frame_duration = std::chrono::milliseconds(1000 / danceFrame_rate);          // 用于控制帧速率间隔长度
@@ -187,11 +202,33 @@ void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失�
     while (termination == false)        // 计算完成 || 超时 || 无解 其他情况丢给异常处理线程 如果位置没移动，那么线程挂起
     {    
         mtx_position.lock();
-        const vec3d position = origin_position;                                             // 获取 position 赋值给const 本轮while循环中const pps moment不再改变 直到下轮循环
+        Pos_estimator();                                                                    // 预测更新
+        // const vec3d position = origin_position;                                             // 获取 position 赋值给const 本轮while循环中const pps moment不再改变 直到下轮循环
+        const vec3d position = pos_predict;                                                 // 预测位置
         const pps moment = origin_moment;                                                   // 获取 moment      
         mtx_position.unlock();
         singleSend_msg.frame = moment.frame;
-        queue.dequeue(moment.frame);                                                        // 更新cycbuffer 
+        
+        // while (true){
+        //     int monitor_counter = 0;
+        //     if(queue.buffer_count_() > 60)  {                                                       // 余量监控 防止耗尽保证安全
+        //         queue.dequeue(moment.frame);                                                        // 当前已刷新到实时 更新cycbuffer 
+        //         break;                      }     
+
+            
+        //     else if(queue.buffer_count_() < 60 && monitor_counter > 5)                                                 // 舞步快完了 跳过监控
+        //     {
+        //         printf("queue.buffer_count_() < 60 && monitor_counter > 5\n");
+        //     }                                                                           
+        //     else{
+        //         std::this_thread::sleep_for(std::chrono::milliseconds(1));                          // 等待装填
+        //         monitor_counter++;
+        //         if (monitor_counter >= 6) {printf("wait for 5 milliseconds\n");}
+        //         }
+        // }
+        {
+        queue.dequeue(moment.frame);
+        }
 
         if (guidance_phase == true){                                                        // 处置先导段切出状态机定时
             auto now_1 = std::chrono::high_resolution_clock::now();
@@ -206,14 +243,14 @@ void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失�
         // if (guidance_phase == false && enter_endingpoint == false)                                   // 测试用
 
         /** 避障规划阶段*/
-        if (guidance_phase == false && (endpoint_distance/(limit.constraint_speed) > end_scope))                // 正常完成先导段定时时进入 否则进入else
+        if (guidance_phase == false && ((endpoint_distance/(limit.constraint_speed)) > end_scope))                // 正常完成先导段定时时进入 否则进入else
         {   
             auto start = std::chrono::high_resolution_clock::now();                                             // 记录开始时间用于测算单次路径规划的耗时
-            unsigned int frame = moment.frame;                                                                  // 获取当前帧
+            // unsigned int frame = moment.frame;                                                                  // 获取当前帧
             // if(!queue.dequeue(matrix))printf("current sequence pop go wrong\n");                             // TODO这里需不需要判断一下cycbuffer中还有多少余量呢
             queue.atomicity = 0;                                                                                // 锁定cycbuffer的原子时间，期间不可dequeue以确保通过frame偏移访问cycbuffer的一致性 算法单次规划基于的数据是一致可微的 手动dequeue就不存在这个问题了
-
-            set3d target = queue.invoking(frame, (ID-1));                                                       // 获取目标当前位置
+            // printf("in first invoking set !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+            set3d target = queue.invoking(0/*frame*/, (ID));                                                       // 获取目标当前位置 0 就表示最新的目标位置
             // printf("target_xyz: %f:%f:%f\n", target.x,target.y,target.z);
             auto vector_seg = segmentVector(position, SET3D_TO_VEC3D(target), limit.constraint_speed, endpoint_distance);          // 向量分段 <vec3d> vector_seg (包含0位置)
             // printf("vector_seg_xyz: %f:%f:%f\n", vector_seg[1].x,vector_seg[1].y,vector_seg[1].z);
@@ -241,8 +278,10 @@ void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失�
                     for (size_t j = 0; j < (ALL_DRONE_NUM - 1); j++)                                                // 检查看看是不是所有飞机都遍历到了
                     {   
                         // printf("inner ALL_DRONE_NUM - 1 !!!!!!!!!!!!!!!:%d\n", j);
+                        // printf("danceFrame_rate + margin %d\n", i);
                         // vec3d dyschronism = SET3D_TO_VEC3D(matrix[frame-1+i][j]);                                // 时间上找到障碍帧
-                        vec3d dyschronism = SET3D_TO_VEC3D(queue.invoking(frame + i, j));
+                        // printf("in seconed invoking set !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+                        vec3d dyschronism = SET3D_TO_VEC3D(queue.invoking(i, j));
                         auto range = manhattanDistance(position, dyschronism).first;    // 返回距离差 x+y+z
                         auto spot = manhattanDistance(position, dyschronism).second;    // 返回距离差向量 差diff vec3d xyz
                         if (range < R_manhattanball/*这里选取障碍范围*/)                                                // 找当前位置相邻范围 TODO 06.21待讨论 思考：用曼哈顿距离 后 会不会引入更多的 非同层点的投影 以此影响有解的可能性 曼哈顿距离和欧拉距离的适用场景 欧拉距离改成曼哈顿距离 帧筛选 这里设置规避的障碍半径 这里的 8 应该用速度约束来控
@@ -279,7 +318,7 @@ void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失�
 
                 std::vector<vec3d> output;                                           
                 auto max_point = path.size();
-                {   
+                    {   
                     for (size_t i = 1; i < max_point; i++)
                     {   vec3d temp;
                         temp.x = position.x + (INVERMAPPING(path[i])).x;                        // 对路径反浮点化
@@ -287,7 +326,7 @@ void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失�
                         temp.z = position.z + (INVERMAPPING(path[i])).z;
                         output.push_back(temp);
                     }
-                    guider.update(output, frame);
+                    guider.update(output, moment.frame);
 
                     auto now = std::chrono::high_resolution_clock::now();                       // 单次规划结束时间
                     std::chrono::duration<double> elapsed = now - start;
@@ -303,8 +342,9 @@ void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失�
                             // send_dataInplanning.detach();
                             if (send_dataInplanning.joinable()) {send_dataInplanning.detach();}
                         }                         
+                    }
                 }
-                }
+            std::this_thread::sleep_for(std::chrono::milliseconds(sleep_time));     // 每次休眠10毫秒 可变
         }
 
         else if (guidance_phase == true)                /** 初始制导阶段*/
@@ -330,12 +370,12 @@ void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失�
                 // pthread_join(&send_dataInplanning, nullptr);
             }
 
-            unsigned int frame = moment.frame;
-            set3d target = queue.invoking(frame, (ID-1));
+            set3d target = queue.invoking( moment.frame, (ID-1));
             singleSend_msg.pos[0] = static_cast<float> (target.x);
             singleSend_msg.pos[1] = static_cast<float> (target.y);
             singleSend_msg.pos[2] = static_cast<float> (target.z);
-            RGB_control(singleSend_msg, 3, target);
+            // RGB_control(singleSend_msg, 3, target);
+            RGB_control(singleSend_msg, 3);
             send_planningPosition(&singleSend_msg);
             printf("Endpoint px:%f ,py:%f ,pz:%f\n", singleSend_msg.pos[0], singleSend_msg.pos[1], singleSend_msg.pos[2]);
             std::this_thread::sleep_for(std::chrono::milliseconds(33));         // 动态休眠以降低CPU开销
