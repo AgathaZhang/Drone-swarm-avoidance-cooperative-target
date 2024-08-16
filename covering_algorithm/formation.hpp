@@ -20,6 +20,8 @@
 #include <thread>
 #include <chrono>
 #include <cstdlib>
+// #include <set>
+#include <unordered_set>
 #include "aes.hpp"
 
 // #include <winsock2.h>
@@ -156,7 +158,7 @@ constraint()
         //   calcu_times(0),
         //   elapsed_time(0.0),
           constraint_speed{3.0},
-          collision_radius{0.1}
+          collision_radius{0.2}
         //   ALL_DRONE_NUM(0),
         //   success(2) 
 		{}

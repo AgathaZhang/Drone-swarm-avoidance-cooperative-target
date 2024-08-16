@@ -11,6 +11,25 @@
 #include "AStar.hpp"
 #include "algorithmmng.h"
 
+namespace std {     // 在std::hash空间中特化对AStar::Vec3i类的哈希运算
+
+    template <>
+    struct hash<AStar::Vec3i> { // 重载 () 操作符，用于生成基于 Vec3i 对象的哈希值
+        size_t operator()(const AStar::Vec3i& v) const {
+            return std::hash<int>()(v.x) ^ std::hash<int>()(v.y) ^ std::hash<int>()(v.z);
+        }
+    };
+
+    // 为 AStar::Vec3i 类型自定义 std::equal_to 特化版本
+    template <>
+    struct equal_to<AStar::Vec3i> { // 重载()，用于比较两个 Vec3i 对象是否相等
+        bool operator()(const AStar::Vec3i& lhs, const AStar::Vec3i& rhs) const {
+            return lhs.x == rhs.x && lhs.y == rhs.y && lhs.z == rhs.z; 
+// 注意在哈希比较两个 Vec3i 对象的每个坐标是否相等时必须先整型量化 实型只能考虑范数球 实型不是离散的 不能比较哈希相等
+        }
+    };
+}
+
 void RGB_control(mavlink_auto_filling_dance_t& singleSend_msg, int phase, set3d target = {0}){
 
     switch (phase)
@@ -243,18 +262,20 @@ void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失�
         // if (guidance_phase == false && enter_endingpoint == false)                                   // 测试用
 
         /** 避障规划阶段*/
-        if (guidance_phase == false && ((endpoint_distance/(limit.constraint_speed)) > end_scope))                // 正常完成先导段定时时进入 否则进入else
+        // if (guidance_phase == false && ((endpoint_distance/(limit.constraint_speed)) > end_scope))                // 正常完成先导段定时时进入 否则进入else 时间切换方式
+        if (guidance_phase == false && endpoint_distance > (end_switch_dis*3)/*十米一算*/&& non_return_state_machine == false)                // 正常完成先导段定时时进入 否则进入else
         {   
             auto start = std::chrono::high_resolution_clock::now();                                             // 记录开始时间用于测算单次路径规划的耗时
             // unsigned int frame = moment.frame;                                                                  // 获取当前帧
             // if(!queue.dequeue(matrix))printf("current sequence pop go wrong\n");                             // TODO这里需不需要判断一下cycbuffer中还有多少余量呢
             queue.atomicity = 0;                                                                                // 锁定cycbuffer的原子时间，期间不可dequeue以确保通过frame偏移访问cycbuffer的一致性 算法单次规划基于的数据是一致可微的 手动dequeue就不存在这个问题了
             // printf("in first invoking set !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-            set3d target = queue.invoking(0/*frame*/, (ID));                                                       // 获取目标当前位置 0 就表示最新的目标位置
+            set3d target = queue.invoking(0/*frame*/, (ID));                                                    // 获取目标当前位置 0 就表示最新的目标位置
             // printf("target_xyz: %f:%f:%f\n", target.x,target.y,target.z);
             auto vector_seg = segmentVector(position, SET3D_TO_VEC3D(target), limit.constraint_speed, endpoint_distance);          // 向量分段 <vec3d> vector_seg (包含0位置)
+            if(endpoint_distance < end_switch_dis){continue;}                                                   // 立即跳出切换至舞步
             // printf("vector_seg_xyz: %f:%f:%f\n", vector_seg[1].x,vector_seg[1].y,vector_seg[1].z);
-            vec3d increment = vector_seg[1] - position;                                                         // 取单次局部规划长度 <vec3d> increment  (往后看一个点) 
+            vec3d increment = vector_seg[3] - position;                                                         // TODO 这里可以再把局部放远一点了 取单次局部规划长度 <vec3d> increment  (往后看一个点) 
             Mint guide_target = QUANTIZATION_MAPPING_3D(increment);                                             // 输入一个 vec3d的数据 量化映射到 <Mint> x y z
             AStar::Vec3i guide_target_final = Mint3DToVec3I(guide_target);                                      // 格式转换
             
@@ -266,16 +287,19 @@ void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失�
             // step5 加初向量还原原始轨迹 √
 
             AStar::Generator generator;                                                                             // 定义了一个generator类
-            generator.setWorldSize({100, 100, 100});                                                                // 设置边界范围10m 相对于0.1的量化来说
+            // generator.setWorldSize({100, 100, 100});                                                                // 设置边界范围10m 相对于0.1的量化来说
+            generator.setWorldSize({250, 250, 250});                                                                // 设置边界范围25m 相对于0.1的量化来说
             generator.setHeuristic(AStar::Heuristic::euclidean);                                                    // 设置启发函数为欧几里得
             generator.setDiagonalMovement(true);                                                                    // 设置对角元素 这里可以再降点开销
 
-            if (0){}    //(queue.buffer_count_() < 60){std::this_thread::sleep_for(std::chrono::milliseconds(10));}            // 检查cycbuffer睡眠等待填满
+            if (0){}    // 此处预留 //(queue.buffer_count_() < 60){std::this_thread::sleep_for(std::chrono::milliseconds(10));}            // 检查cycbuffer睡眠等待填满
             else{ 
-                int densimeter_inner = 0;                                                                           // 求出本轮障碍飞机数量
+                std::unordered_set<AStar::Vec3i> seenBoxes;                                                         // 定义无序哈希集用于查重 时间复杂度O(1) 最坏退化成O(n)只有在生成同哈希值索引时才会产生内层遍历
+                std::unordered_set<AStar::Vec3i> connected_domain;                                                  // 同理定义避碰连通域
+                std::vector<AStar::Vec3i> Debugging_observ_howmany_hole;                                            // TODO 调试阶段用
                 for (size_t i = 0; i < danceFrame_rate + margin; i++)                                               // TODO 应该设置成动态 向后找多少帧 60帧 这里根据速度约束在单次计算的平均时间开销来推断,尽量的小,避免时序上过长 wall堵塞造成无解的情况
                 {   
-                    for (size_t j = 0; j < (ALL_DRONE_NUM - 1); j++)                                                // 检查看看是不是所有飞机都遍历到了
+                    for (size_t j = 0; j < (ALL_DRONE_NUM - 1); j++)                                                // 时间复杂度O(n^2) 检查看看是不是所有飞机都遍历到了
                     {   
                         // printf("inner ALL_DRONE_NUM - 1 !!!!!!!!!!!!!!!:%d\n", j);
                         // printf("danceFrame_rate + margin %d\n", i);
@@ -287,23 +311,28 @@ void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失�
                         if (range < R_manhattanball/*这里选取障碍范围*/)                                                // 找当前位置相邻范围 TODO 06.21待讨论 思考：用曼哈顿距离 后 会不会引入更多的 非同层点的投影 以此影响有解的可能性 曼哈顿距离和欧拉距离的适用场景 欧拉距离改成曼哈顿距离 帧筛选 这里设置规避的障碍半径 这里的 8 应该用速度约束来控
                         //                                                                                                 这里可以优化的是 不用把方向向量的负球面的那些向量也纳入进来占用遍历时间(需要 因为无解倒退的情况也需要规避)
                         //                                                                                                 目标位置不能和障碍是同一个 要互斥
-                        {   densimeter_inner++;
+                        {
                             auto Box = Mint3DToVec3I/*格式转换*/(QUANTIZATION_MAPPING_3D(spot));
                             // printf("Box : %d, %d, %d\n", Box.x,Box.y,Box.z);
                             // if (Box == guide_target_final || Box == zero) continue;                              // 屏蔽此刻 始末 位置有飞机占位                         // 每个位置上做避碰半径拓展，看看能不能把流程放在if后，类型转换前
+                            if (seenBoxes.insert(Box).second) {
                             for (size_t i = 0; i < hole.size(); i++)
-                            {   
-                                generator.addCollision(Box + hole[i]);              // TODO 06.28 考虑包围进0,0点堵死的情况
-                            // printf("Box : %d, %d, %d\n", (Box + hole[i]).x,(Box + hole[i]).y,(Box + hole[i]).z);
-                            }                                                       // TODO 07.22 同上 考虑离飞机很近的hole面积，排除掉
+                                {   
+                                Debugging_observ_howmany_hole.push_back(Box);       // TODO 调试阶段用 存储所有飞机中心坐标
+                                connected_domain.insert(Box + hole[i]);                        // TODO 06.28 考虑包围进0,0点堵死的情况 减少冗余计算和重复部分的生成是目的 在欧氏距离小于最小穿越距离1.4m以内的质点作为连通域 使用DFS或BFS搜索 不见得三维空间中做搜索的时间开销会低于现在 
+                                // printf("Box : %d, %d, %d\n", (Box + hole[i]).x,(Box + hole[i]).y,(Box + hole[i]).z);
+                                }                                                       // TODO 07.22 同上 考虑离飞机很近的hole面积，排除掉
+                            }
                         }
                     }
                 }
-                densimeter = densimeter_inner;
+                for (AStar::Vec3i each : connected_domain)  {generator.addCollision(each);}                                 // 将去重的扩增点再添加进 Collision 减少寻路的内层while重复遍历
+                                                          
+                densimeter = Debugging_observ_howmany_hole.size();                                                          // 返回本轮障碍飞机点集数量
                 // printf("densimeter: %d\n",densimeter);
                 queue.atomicity = 1;                                                                                        // 释放cycbuffer的原子时间
                 for (size_t i = 0; i < hole.size(); i++){generator.removeCollision(zero + hole[i]);}                        // 去掉起点本体占位的hole           
-                // for (size_t i = 0; i < hole.size(); i++){generator.removeCollision(guide_target_final + hole[i]);}       // 先不去掉终点 终点如果有飞机会回退
+                for (size_t i = 0; i < hole.size(); i++){generator.removeCollision(guide_target_final + hole[i]);}          // 先不去掉终点 终点如果有飞机会回退
 
                 /** 开始计算局部路径*/
                 // std::cout << "Generate path ... \n";
@@ -347,7 +376,7 @@ void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失�
             std::this_thread::sleep_for(std::chrono::milliseconds(sleep_time));     // 每次休眠10毫秒 可变
         }
 
-        else if (guidance_phase == true)                /** 初始制导阶段*/
+        else if (guidance_phase == true &&  non_return_state_machine == false)                /** 初始制导阶段*/
         {   
             next_frame += frame_duration;
             singleSend_msg.pos[0] = static_cast<float> (position.x);
@@ -362,13 +391,15 @@ void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失�
         }
         else                                            /** 末端制导阶段*/
         {   
-            if (is_send_dataInplanning == true){        // kill 上一个状态机发送业务线程
+            if (is_send_dataInplanning == true && depletion == true){        // kill 上一个状态机发送业务线程
                 is_send_dataInplanning = false;
+                non_return_state_machine = true;
                 // std::unique_lock<std::mutex> lk(is_send_dataInplanning_cv_mtx);
                 // is_send_dataInplanning_cv.wait(lk, [this]{ return !(is_send_dataInplanning)/*true时继续执行*/; });  //怕出错也可以不要这部分机制
                 // pthread_cancel(&send_dataInplanning);
                 // pthread_join(&send_dataInplanning, nullptr);
             }
+            else{std::this_thread::sleep_for(std::chrono::milliseconds(33));continue;} // 等待depletion置位 把上次规划的路线跑完
 
             set3d target = queue.invoking( moment.frame, (ID-1));
             singleSend_msg.pos[0] = static_cast<float> (target.x);

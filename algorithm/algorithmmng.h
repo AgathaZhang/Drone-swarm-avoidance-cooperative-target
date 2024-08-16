@@ -12,6 +12,7 @@
 #include "mavlink_msg_statustext.h"
 #include "motionfusion/sensfusion.h"
 #include "mavlink_msg_auto_filling_dance.h"     // 补位新加协议
+#include "mavlink_msg_formation_cmd_half.h"     // 接受来自飞控的命令字
 #include "planning.hpp"
 
 
@@ -37,12 +38,13 @@ public:
     void stop();
 
     void sendToPc(const char* data, int len);                       // 上发adb函数
-    void sendQrPosition(__mavlink_qrcode_t *msg);
+    // void sendQrPosition(__mavlink_qrcode_t *msg);                // (弃用)
     void send_planningPosition(mavlink_auto_filling_dance_t *msg);  // 补位算法发送期望位置
     void onMavlinkMessage(const mavlink_message_t *message);        // 回调函数
     void handleMsgFromDrone(mavlink_message_t *msg);
 
     /** 补位函数 */
+    // void comtocom(void);
     void inner_log(void);
     void init_target(void);
     void receive(void);
@@ -71,19 +73,25 @@ private:
     double solution_time = 0;                       // 单次解算时间
     double endpoint_distance = 1000;                // 当前距离终端位置的距离
     double end_scope = 1;                           // 结束避障阶段的距离条件 剩1s内到达终点
+    double end_switch_dis = 3;                      // 切换至末端状态机的剩余距离
     
     /** 约束*/ 
+    bool depletion = false;                         // 单次规划期望全部耗尽指示
     bool termination = false;                       // 终止补位
     bool dataReady = false;                         // 数据流准备好
     bool guide_finish = false;                      // 路径输出完成标志
+    bool non_return_state_machine = false;          // 单向状态机止回阀
+    bool is_send_dataInplanning = false;            // 规划阶段的发送线程控制状态字
 
+    int cmd_switch;                                 // 程序切换命令字状态
     int cycbuffer_residue;                          // cycbuffer 剩余
-    int sleep_time = 500;                           // 单次计算后的睡眠时间
+    // int sleep_time = 500;                           // 单次计算后的睡眠时间
+    int sleep_time = 2000;                          // 10m规划时单次计算后的睡眠时间
     int margin = 20;                                // 时空上的障碍飞机裕量
     int danceFrame_rate = 30;                       // 舞步帧速率
     int force_entern_endpoint = 10;                 // 强制进入末端舞步时间(测试用)
     double sleep_seconds;                           // 由上面sleep_time转换成的double秒
-    bool is_send_dataInplanning = false;            // 规划阶段的发送线程控制状态字
+
     std::mutex dataReady_mtx;                       // 数据流正常 启动阻塞锁(弃用)
     std::mutex mtx_position;                        // position & frame 时空数据锁
     std::mutex is_send_dataInplanning_cv_mtx;       // 发送子线程锁(弃用)
@@ -105,6 +113,7 @@ private:
 
 private:
     /** 补位线程 */
+    std::thread comtocomthread;
     std::thread logThread;
     std::thread receiveThread;
     std::thread timeThread;

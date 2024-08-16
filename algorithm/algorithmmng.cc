@@ -14,7 +14,7 @@
 
 #include "uart.h"
 #include "icm42670.h"
-#include "app_mavlink.h"
+// #include "app_mavlink.h"
 
 
 
@@ -51,18 +51,19 @@ void AlgorithmMng::start() {
 
 
      /** 补位新增*/
-    logThread = std::thread(std::bind(&AlgorithmMng::inner_log, this));
-    receiveThread = std::thread(std::bind(&AlgorithmMng::receive, this));           // 开启接收线程
 
+    // receiveThread = std::thread(std::bind(&AlgorithmMng::receive, this));           // 开启接收线程 方便进入 之后删除
+    // comtocomthread = std::thread(std::bind(&AlgorithmMng::comtocom, this));
     //重要:这里应该阻塞等待,直到收到指定补位ID号且类成员明确被赋值后才进行读文件线程,在receve中做操作或者mavlink_uart函数中做检查,这很重要,关系到同步,一旦补位开始全局时间流就不能停止，总之一定要开始收正常的数据之后再操作后续步骤 可以根据mavlink的命令字来确定
-    while (dataReady == false)  // 阻塞监听 等待数据流正常
+    while (dataReady == false /*&& cmd_switch == 20*/)  // 阻塞监听 等待数据流正常
     {   
         printf(" Wait receive!!!!!!!!!!!!!!!!!!!!!!\n");
         std::this_thread::sleep_for(std::chrono::milliseconds(20));
         // if (dataReady == true){break;}
     }
-
+    
     printf(" Entern normal!!!!!!!!!!!!!!!!!!!!!!\n");
+    logThread = std::thread(std::bind(&AlgorithmMng::inner_log, this));
     loaderThread = std::thread(std::bind(&AlgorithmMng::loadInCycque, this, std::ref(moment), std::ref(queue)));    // 加载缓冲池
 
     std::this_thread::sleep_for(std::chrono::milliseconds(500));                   // 给点时间让ram装载
@@ -368,8 +369,29 @@ void AlgorithmMng::handleMsgFromDrone(mavlink_message_t *msg)
 			//printf("ground_distance = %d\n", atti.ground_distance);
 			break;	
 		}
+
+
+/**       mavlink_formation_cmd_half_t
+ uint64_t utc;  Unix Timestamp in milliseconds
+ uint32_t token;   Command token
+ uint32_t no_used[4];  no used
+ uint16_t id_start[25];   Drone ID
+ uint16_t id_end[25];   Drone ID
+ uint16_t data;   Data
+ uint16_t param;  Param
+ uint8_t cmd;   see instruction book
+ uint8_t ack;   Ack 0-NoAck 1-Ack
+ uint8_t type;   Broadcast or point to point 0-Broadcast 1-Point to Point
+*/
+        case  MAVLINK_MSG_ID_FORMATION_CMD_HALF:            // TODO 处理来自飞机的命令字
+        {
+            // mavlink_msg_formation_cmd_half_encode(uint8_t system_id, uint8_t component_id, mavlink_message_t* msg, const mavlink_formation_cmd_half_t* formation_cmd_half);        // 状态打包发送给飞控用于切换模式
+            mavlink_formation_cmd_half_t half_cmd;
+            // mavlink_msg_formation_cmd_half_decode(const mavlink_message_t* msg, mavlink_formation_cmd_half_t* formation_cmd_half);      // 解压命令字
+
+        }
         
-        case MAVLINK_MSG_ID_auto_filling_dance:
+        case MAVLINK_MSG_ID_auto_filling_dance:             // 更新装填来自飞机的坐标数据包
         {   
             // printf("Case in success mavlink!!!!!!!!\n");
             mavlink_auto_filling_dance_t dance_cmd;
@@ -397,17 +419,18 @@ void AlgorithmMng::handleMsgFromDrone(mavlink_message_t *msg)
 	}	
 }
 
-void AlgorithmMng::sendQrPosition(__mavlink_qrcode_t *msg)
-{
-    mavlink_message_t mavlink;
-	uint8_t buf[MAVLINK_MAX_PAYLOAD_LEN];
-    uint16_t buf_size;
-	
-	mavlink_msg_qrcode_encode(0, 0, &mavlink, msg);
-	buf_size = mavlink_msg_to_send_buffer(buf, &mavlink);
 
-	uart_send(mDroneDevFd, buf, buf_size);
-}
+// void AlgorithmMng::sendQrPosition(__mavlink_qrcode_t *msg)
+// {
+//     mavlink_message_t mavlink;
+// 	uint8_t buf[MAVLINK_MAX_PAYLOAD_LEN];
+//     uint16_t buf_size;
+	
+// 	mavlink_msg_qrcode_encode(0, 0, &mavlink, msg);
+// 	buf_size = mavlink_msg_to_send_buffer(buf, &mavlink);
+
+// 	uart_send(mDroneDevFd, buf, buf_size);
+// }
 
 /**
  float pos[3];
@@ -497,6 +520,7 @@ void AlgorithmMng::send_guidance_data(Guide_vector& guider) {       // TODO if �
         // auto moment = guider.read().second;
         // 如果读取成功了 再执行 否则挂起等待？
         /** 发送的业务 */
+        depletion = false;
         for (size_t index = 0; index < guide.size(); ++index){ // 如果已经访问完 guide 的所有元素，则退出循环  
             // printf("Subthread'@send_dataInplanning' innerfor!!!!!!!!!!!!!!!\n");
             printf("inner index%d  ", index);
@@ -511,9 +535,28 @@ void AlgorithmMng::send_guidance_data(Guide_vector& guider) {       // TODO if �
             if(guider.is_Update_or_not() == true) break;
             if (is_send_dataInplanning == false) break;
         }
+        depletion = true;
     }
     // std::lock_guard<std::mutex> lk(is_send_dataInplanning_cv_mtx);
     // is_send_dataInplanning_cv.notify_one();
     printf("Subthread'@send_dataInplanning' is killed\n");
 }
 
+
+// void AlgorithmMng::comtocom(void){
+//     mavlink_auto_filling_dance_t singleSend_msg;
+//     static uint16_t inner_frame;
+//     while (true)
+//     {   
+//         inner_frame++;
+//         singleSend_msg.pos[0] = 1.0;        // 给出当前位置未来增量
+//         singleSend_msg.pos[1] = 2.0;
+//         singleSend_msg.pos[2] = 3.0;
+//         singleSend_msg.drone_id = 5;
+//         singleSend_msg.frame = inner_frame;
+//         send_planningPosition(&singleSend_msg);
+//         std::this_thread::sleep_for(std::chrono::milliseconds(33));
+//         printf("...\n");
+//     }
+    
+// }
