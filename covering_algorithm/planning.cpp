@@ -210,7 +210,7 @@ void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失�
     // bool enter_endingpoint = false;     // 强制进入endingpoint测试用
     // static int cont_planning = 0;       // 强制进入endingpoint测试用
     const auto frame_duration = std::chrono::milliseconds(1000 / danceFrame_rate);          // 用于控制帧速率间隔长度
-    auto start_1 = std::chrono::high_resolution_clock::now();                               // 先导段计时器
+    auto start_1 = std::chrono::high_resolution_clock::now();                               // 进入先导段计时器
     auto next_frame = std::chrono::steady_clock::now();                                     // 先导段和末端段计时器
     mavlink_auto_filling_dance_t singleSend_msg;                                            // 定义每次发送给飞机的mavlink
     
@@ -218,36 +218,40 @@ void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失�
     AStar::Vec3i zero = {0, 0, 0};                                                          // 定义质点体积补偿hole 复用: 1 起始点 2 质点扩增初始化 // (二维)AStar::Vec2i zero = {0, 0};
     std::vector<AStar::Vec3i> hole = EXPAND_MAPPING_3Dvec(limit.collision_radius);          // 设置安全区hole
 
-    while (termination == false)        // 计算完成 || 超时 || 无解 其他情况丢给异常处理线程 如果位置没移动，那么线程挂起
-    {    
+    while (termination == false)        // 计算完成 || 超时(自然遍历耗尽) || 无解(自然回退了) 其他情况丢给异常处理线程 如果位置没移动，那么线程挂起
+    {   
         mtx_position.lock();
-        Pos_estimator();                                                                    // 预测更新
-        // const vec3d position = origin_position;                                             // 获取 position 赋值给const 本轮while循环中const pps moment不再改变 直到下轮循环
-        const vec3d position = pos_predict;                                                 // 预测位置
+        Pos_estimator();                                                                    // 预测更新 (这里的position和moment都是从mavlink取的 据此更新dequeue没有问题)
+        // const vec3d position = origin_position;                                          // 从非预测位置取 获取 position 赋值给const 本轮while循环中const pps moment不再改变 直到下轮循环
+        const vec3d position = pos_predict;                                                 // 从预测位置取
         const pps moment = origin_moment;                                                   // 获取 moment      
         mtx_position.unlock();
         singleSend_msg.frame = moment.frame;
         
-        // while (true){
-        //     int monitor_counter = 0;
-        //     if(queue.buffer_count_() > 60)  {                                                       // 余量监控 防止耗尽保证安全
-        //         queue.dequeue(moment.frame);                                                        // 当前已刷新到实时 更新cycbuffer 
-        //         break;                      }     
+        while (true){   /** 余量监控管理器 & 安全退出状态机 */ 
+            static int monitor_counter = 0;
+            if(queue.buffer_count_() > 60)  {                                                       // 余量监控 防止耗尽保证安全
+                {queue.dequeue(moment.frame);}                                                        // 当前已刷新到实时 更新cycbuffer 
+                break;                      }     
 
             
-        //     else if(queue.buffer_count_() < 60 && monitor_counter > 5)                                                 // 舞步快完了 跳过监控
-        //     {
-        //         printf("queue.buffer_count_() < 60 && monitor_counter > 5\n");
-        //     }                                                                           
-        //     else{
-        //         std::this_thread::sleep_for(std::chrono::milliseconds(1));                          // 等待装填
-        //         monitor_counter++;
-        //         if (monitor_counter >= 6) {printf("wait for 5 milliseconds\n");}
-        //         }
-        // }
-        {
-        queue.dequeue(moment.frame);
+            else if(queue.buffer_count_() < 60 && non_return_state_machine == true)                                                 // 舞步快完了 跳过监控
+            {   
+                guide_finish = true;
+                printf("FINISH ALL ROAD\n");
+                break;
+            }
+
+            else{
+                std::this_thread::sleep_for(std::chrono::milliseconds(5));                          // 等待装填
+                monitor_counter++;
+                if (monitor_counter >= 5) 
+                    {monitor_counter = 0;   overtime = true;
+                    printf("Wait cycbuffer load overtime\n");
+                    break;}
+                }
         }
+        // {queue.dequeue(moment.frame);}                                                      // 弹出旧时刻帧 这个没有安全机制 万一pread有误就会出错 要加弹出上限控制 这个上限粗略等于单次while的运行时间
 
         if (guidance_phase == true){                                                        // 处置先导段切出状态机定时
             auto now_1 = std::chrono::high_resolution_clock::now();
@@ -263,7 +267,7 @@ void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失�
 
         /** 避障规划阶段*/
         // if (guidance_phase == false && ((endpoint_distance/(limit.constraint_speed)) > end_scope))                // 正常完成先导段定时时进入 否则进入else 时间切换方式
-        if (guidance_phase == false && endpoint_distance > (end_switch_dis*3)/*十米一算*/&& non_return_state_machine == false)                // 正常完成先导段定时时进入 否则进入else
+        if (guidance_phase == false && endpoint_distance > (end_switch_dis/**3*/)/*十米一算*/&& non_return_state_machine == false)                // 条件中endpoint_distance是上次的 正常完成先导段定时时进入 否则进入else
         {   
             auto start = std::chrono::high_resolution_clock::now();                                             // 记录开始时间用于测算单次路径规划的耗时
             // unsigned int frame = moment.frame;                                                                  // 获取当前帧
@@ -275,7 +279,7 @@ void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失�
             auto vector_seg = segmentVector(position, SET3D_TO_VEC3D(target), limit.constraint_speed, endpoint_distance);          // 向量分段 <vec3d> vector_seg (包含0位置)
             if(endpoint_distance < end_switch_dis){continue;}                                                   // 立即跳出切换至舞步
             // printf("vector_seg_xyz: %f:%f:%f\n", vector_seg[1].x,vector_seg[1].y,vector_seg[1].z);
-            vec3d increment = vector_seg[3] - position;                                                         // TODO 这里可以再把局部放远一点了 取单次局部规划长度 <vec3d> increment  (往后看一个点) 
+            vec3d increment = vector_seg[1] - position;                                                         // TODO 这里可以再把局部放远一点了 取单次局部规划长度 <vec3d> increment  (往后看一个点) 
             Mint guide_target = QUANTIZATION_MAPPING_3D(increment);                                             // 输入一个 vec3d的数据 量化映射到 <Mint> x y z
             AStar::Vec3i guide_target_final = Mint3DToVec3I(guide_target);                                      // 格式转换
             
@@ -287,8 +291,8 @@ void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失�
             // step5 加初向量还原原始轨迹 √
 
             AStar::Generator generator;                                                                             // 定义了一个generator类
-            // generator.setWorldSize({100, 100, 100});                                                                // 设置边界范围10m 相对于0.1的量化来说
-            generator.setWorldSize({250, 250, 250});                                                                // 设置边界范围25m 相对于0.1的量化来说
+            generator.setWorldSize({100, 100, 100});                                                                // 设置边界范围10m 相对于0.1的量化来说
+            // generator.setWorldSize({250, 250, 250});                                                                // 设置边界范围25m 相对于0.1的量化来说
             generator.setHeuristic(AStar::Heuristic::euclidean);                                                    // 设置启发函数为欧几里得
             generator.setDiagonalMovement(true);                                                                    // 设置对角元素 这里可以再降点开销
 
@@ -391,7 +395,7 @@ void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失�
         }
         else                                            /** 末端制导阶段*/
         {   
-            if (is_send_dataInplanning == true && depletion == true){        // kill 上一个状态机发送业务线程
+            if (is_send_dataInplanning == true && depletion == true/*单次规划耗尽*/){        // kill 上一个状态机发送业务线程
                 is_send_dataInplanning = false;
                 non_return_state_machine = true;
                 // std::unique_lock<std::mutex> lk(is_send_dataInplanning_cv_mtx);
@@ -399,8 +403,8 @@ void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失�
                 // pthread_cancel(&send_dataInplanning);
                 // pthread_join(&send_dataInplanning, nullptr);
             }
-            else{std::this_thread::sleep_for(std::chrono::milliseconds(33));continue;} // 等待depletion置位 把上次规划的路线跑完
-
+            
+            else if (non_return_state_machine == true){
             set3d target = queue.invoking( moment.frame, (ID-1));
             singleSend_msg.pos[0] = static_cast<float> (target.x);
             singleSend_msg.pos[1] = static_cast<float> (target.y);
@@ -410,6 +414,10 @@ void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失�
             send_planningPosition(&singleSend_msg);
             printf("Endpoint px:%f ,py:%f ,pz:%f\n", singleSend_msg.pos[0], singleSend_msg.pos[1], singleSend_msg.pos[2]);
             std::this_thread::sleep_for(std::chrono::milliseconds(33));         // 动态休眠以降低CPU开销
+            // TODO 通过cycbuffer耗尽来旋转break循环    
+            }
+
+            else{std::this_thread::sleep_for(std::chrono::milliseconds(33));} // 等待depletion置位 把上次规划的路线跑完
         }
 
         // step3 计算欧氏距离,大致预测到达时间
@@ -417,9 +425,12 @@ void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失�
         // step6 distanceTotarget
         // 根据获取的当前时间,和丢失ID,推演跟踪时间
         // 生成全局方位向量
-     
+        if (guide_finish == true) {printf("Guide all finish!!!!!!!!!!\n");break;}      // 置计算成功标志位
+        if (overtime == true) {printf("Over time!!!!!!!!!!\n");break;}
+        
     }
-        guide_finish = true;       // 置计算成功标志位
+   
+
 }
 
 // TODO 异常处理列表 枚举 结构体 函数句柄 根据case调用不同的函数指针

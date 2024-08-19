@@ -513,7 +513,7 @@ void AlgorithmMng::send_guidance_data(Guide_vector& guider) {       // TODO if �
     mavlink_auto_filling_dance_t singleSend_msg;
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));   // 等一秒
     while (true) {
-        if (is_send_dataInplanning == false)break;
+        if (is_send_dataInplanning == false) break;
         auto guide = guider.read().first; // 读取当前的 guide 和 moment
         // const vec3d virtual_posi_atom = virtual_posi;
         printf("guide.size: %d ", guide.size());
@@ -532,10 +532,12 @@ void AlgorithmMng::send_guidance_data(Guide_vector& guider) {       // TODO if �
             printf("isPlanning px:%f ,py:%f ,pz:%f\n", singleSend_msg.pos[0], singleSend_msg.pos[1], singleSend_msg.pos[2]);
             
             std::this_thread::sleep_for(std::chrono::milliseconds(33)); // 控制发送间隔为 33ms
-            if(guider.is_Update_or_not() == true) break;
+            if (guider.is_Update_or_not() == true) break;
             if (is_send_dataInplanning == false) break;
+            // if (index = (guide.size()-1)) {depletion = true;}
+            
         }
-        depletion = true;
+        depletion = true;       // 也可以放在if中
     }
     // std::lock_guard<std::mutex> lk(is_send_dataInplanning_cv_mtx);
     // is_send_dataInplanning_cv.notify_one();

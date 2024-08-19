@@ -76,18 +76,19 @@ private:
     double end_switch_dis = 3;                      // 切换至末端状态机的剩余距离
     
     /** 约束*/ 
+    bool overtime = false;                          // 超时警告 直接退出线程
     bool depletion = false;                         // 单次规划期望全部耗尽指示
     bool termination = false;                       // 终止补位
     bool dataReady = false;                         // 数据流准备好
-    bool guide_finish = false;                      // 路径输出完成标志
+    bool guide_finish = false;                      // 路径全流程完成标志
     bool non_return_state_machine = false;          // 单向状态机止回阀
     bool is_send_dataInplanning = false;            // 规划阶段的发送线程控制状态字
 
     int cmd_switch;                                 // 程序切换命令字状态
     int cycbuffer_residue;                          // cycbuffer 剩余
-    // int sleep_time = 500;                           // 单次计算后的睡眠时间
-    int sleep_time = 2000;                          // 10m规划时单次计算后的睡眠时间
-    int margin = 20;                                // 时空上的障碍飞机裕量
+    int sleep_time = 600;                           // 单次计算后的睡眠时间
+    // int sleep_time = 2000;                          // 10m规划时单次计算后的睡眠时间
+    int margin = 5;                                // 时空上的障碍飞机裕量
     int danceFrame_rate = 30;                       // 舞步帧速率
     int force_entern_endpoint = 10;                 // 强制进入末端舞步时间(测试用)
     double sleep_seconds;                           // 由上面sleep_time转换成的double秒

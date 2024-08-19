@@ -218,7 +218,7 @@ bool CircularQueue::isEmpty() const {
 }
 // 用法 set3d target = queue.invoking(frame, (ID-1)); 
 set3d CircularQueue::invoking(size_t sequence/*时间帧*/, size_t index/*架次*/) {        // 是否没有设置循环到头部
-    // std::unique_lock<std::mutex> lock(mutex_dequeue_invoking_);
+    // std::unique_lock<std::mutex> lock(mutex_dequeue_invoking_);                      // invoking似乎不用加锁 因为planning内部的invoking和dequeue中的invoking总不会同时运作 如果放在单独的消耗线程中就不得不考虑加锁了
     size_t actualIndex = (front_ + sequence) % size_;
     // if (actualIndex >= count_) {printf("out of range Frame is : %d\n", sequence);}
     // if (actualIndex >= count_) {                    // 帧超纲
