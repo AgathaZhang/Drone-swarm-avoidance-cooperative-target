@@ -11,10 +11,12 @@
 #include <time.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <sys/stat.h>
 
 #include "uart.h"
 #include "icm42670.h"
-// #include "app_mavlink.h"
+#include "app_mavlink.h"
+#include "mavlink_msg_dance_info.h"
 
 
 
@@ -85,7 +87,7 @@ void AlgorithmMng::stop() {
 
     mDroneStatus = false;
     mDroneThread.join();
-	mAdbServer->stop();
+    mAdbServer->stop();
 }
 
 void AlgorithmMng::sendToPc(const char *data, int len)
@@ -292,6 +294,67 @@ void  AlgorithmMng::onMavlinkMessage(const mavlink_message_t *msg)
 
                 printf("mavlink received cal acc cmd\n");
             }
+            break;
+        }
+
+        case MAVLINK_MSG_ID_DANCE_INFO:
+        {
+            int ret;
+            mavlink_dance_info_t dance;
+            mavlink_msg_dance_info_decode(msg, &dance);
+
+            if(dance.cmd==DANCE_FILE_INFO)
+            {
+                printf("rcv dance info:\n");
+                printf("cmd = %d\n", dance.cmd);
+                printf("dance_name = %s\n", dance.dance_name);
+                printf("dance_size = %d\n", dance.dance_size);
+
+                if(mAdbServer->mDanceFileFlag == 0)
+                {
+                    memset(mAdbServer->mDanceName, 0, sizeof(mAdbServer->mDanceName));
+                    strcpy(mAdbServer->mDanceName, dance.dance_name);
+                    mAdbServer->mDanceSize = dance.dance_size;
+                    DanceAdbAck(DANCE_FILE_REQUEST_OK, NULL, 0, NULL);    //回应adb
+                    mAdbServer->mDanceFileFlag = 1;
+                    printf("ack dance info: OK\n");
+                }
+                else
+                {
+                    DanceAdbAck(DANCE_FILE_REQUEST_ERR, NULL, 0, NULL);    //回应adb
+                    printf("ack dance info: err, dance transfer busy...\n");
+                }           
+            }
+            else if(dance.cmd==DANCE_FILE_PUSH_COMPLETE)
+            {
+                if(mAdbServer->mDanceFileFlag == 1)
+                {
+                    struct stat fileStat;
+                    int ret;
+                    char dancePath[100] = {0};
+
+                    mAdbServer->mDanceFileFlag = 2;
+
+                    sprintf(dancePath, "%s/%s", DANCE_FILE_DIR, mAdbServer->mDanceName);
+                    ret = stat(dancePath, &fileStat);
+                    if(ret < 0)
+                    {
+                        printf("sta %s err...\n", dancePath);
+                        DanceAdbAck(DANCE_FILE_TRANS_ERR, NULL, 0, NULL);    //回应adb
+                    }
+                    else if(ret == 0)
+                    {
+                        //解压 回复 标志位置空闲
+                        mAdbServer->DanceFileUnzipStart();
+                    }
+                }
+                else
+                {
+                    printf("mDanceFileFlag err...\n");
+                    DanceAdbAck(DANCE_FILE_TRANS_ERR, NULL, 0, NULL);    //回应adb
+                }
+            }
+
             break;
         }
 
@@ -562,3 +625,33 @@ void AlgorithmMng::send_guidance_data(Guide_vector& guider) {       // TODO if �
 //     }
     
 // }
+
+
+//cmd
+// 0：传输文件请求成功
+// 1：传输文件请求失败
+// 2：传输文件成功  
+// 3：传输文件失败
+int AlgorithmMng::DanceAdbAck(unsigned char cmd, char *filename, unsigned int size, char *md5)
+{
+    mavlink_message_t mavlink_msg;
+    mavlink_dance_info_t dance;
+    uint16_t mavlink_size;
+    uint8_t mavlink_buf[MAVLINK_MAX_PACKET_LEN];
+
+    memset(&dance, 0, sizeof(dance));
+    memset(mavlink_buf, 0, sizeof(mavlink_buf));
+
+    dance.cmd = cmd;
+    dance.dance_size = size;
+    if(filename)
+        strcpy(dance.dance_name, filename);
+    if(md5)
+        memcpy(dance.dance_md5, md5, 16);
+
+    mavlink_msg_dance_info_encode(0, 0, &mavlink_msg, &dance);
+    mavlink_size = mavlink_msg_to_send_buffer(mavlink_buf, &mavlink_msg);
+    sendToPc((char *)mavlink_buf, mavlink_size);
+
+    return 0;
+}

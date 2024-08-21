@@ -15,6 +15,15 @@
 #include "mavlink_msg_formation_cmd_half.h"     // 接受来自飞控的命令字
 #include "planning.hpp"
 
+typedef enum _eDanceInfoCmd{
+    DANCE_FILE_INFO,
+    DANCE_FILE_PUSH_COMPLETE,
+}eDanceInfoCmd;
+
+typedef enum _eDanceInfoAck{
+    DANCE_ACK_OK,
+    DANCE_ACK_ERR,
+}eDanceInfoAck;
 
 class AlgorithmMng {
     // friend class FileDescriptorManager;             // 用友元在FileDescriptorManager 返回飞机总架次 
@@ -42,6 +51,8 @@ public:
     void send_planningPosition(mavlink_auto_filling_dance_t *msg);  // 补位算法发送期望位置
     void onMavlinkMessage(const mavlink_message_t *message);        // 回调函数
     void handleMsgFromDrone(mavlink_message_t *msg);
+
+    int DanceAdbAck(unsigned char cmd, char *filename, unsigned int size, char *md5);
 
     /** 补位函数 */
     // void comtocom(void);
