@@ -97,7 +97,7 @@ private:
 
     int cmd_switch;                                 // 程序切换命令字状态
     int cycbuffer_residue;                          // cycbuffer 剩余
-    int sleep_time = 600;                           // 单次计算后的睡眠时间
+    int sleep_time = 800;                           // 单次计算后的睡眠时间
     // int sleep_time = 2000;                          // 10m规划时单次计算后的睡眠时间
     int margin = 5;                                // 时空上的障碍飞机裕量
     int danceFrame_rate = 30;                       // 舞步帧速率

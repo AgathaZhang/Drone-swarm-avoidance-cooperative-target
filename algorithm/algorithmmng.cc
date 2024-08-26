@@ -451,7 +451,7 @@ void AlgorithmMng::handleMsgFromDrone(mavlink_message_t *msg)
             // mavlink_msg_formation_cmd_half_encode(uint8_t system_id, uint8_t component_id, mavlink_message_t* msg, const mavlink_formation_cmd_half_t* formation_cmd_half);        // 状态打包发送给飞控用于切换模式
             mavlink_formation_cmd_half_t half_cmd;
             // mavlink_msg_formation_cmd_half_decode(const mavlink_message_t* msg, mavlink_formation_cmd_half_t* formation_cmd_half);      // 解压命令字
-
+            break;
         }
         
         case MAVLINK_MSG_ID_auto_filling_dance:             // 更新装填来自飞机的坐标数据包
@@ -475,8 +475,9 @@ void AlgorithmMng::handleMsgFromDrone(mavlink_message_t *msg)
             if (dataReady == false){dataReady = true;printf("dataReady = true\n");} 
             // printf("dataReady222 :%d\n",dataReady);
             // printf("x: %f,y: %fz: %fframe: %u\n", virtual_posi.x, virtual_posi.y, virtual_posi.z, moment.frame);
-
+            break;
         }//TODO 
+        
 		default :
 			break;
 	}	
@@ -583,8 +584,8 @@ void AlgorithmMng::send_guidance_data(Guide_vector& guider) {       // TODO if �
         // auto moment = guider.read().second;
         // 如果读取成功了 再执行 否则挂起等待？
         /** 发送的业务 */
-        depletion = false;
-        for (size_t index = 0; index < guide.size(); ++index){ // 如果已经访问完 guide 的所有元素，则退出循环  
+        // depletion = false;
+        for (size_t index = 1/*this is to use solve hysteresis_cal_pos*/; index < guide.size(); ++index){ // 如果已经访问完 guide 的所有元素，则退出循环  
             // printf("Subthread'@send_dataInplanning' innerfor!!!!!!!!!!!!!!!\n");
             printf("inner index%d  ", index);
             singleSend_msg.pos[0] = static_cast<float>(/*virtual_posi_atom.x + */guide[index].x);        // 给出当前位置未来增量
@@ -600,7 +601,7 @@ void AlgorithmMng::send_guidance_data(Guide_vector& guider) {       // TODO if �
             // if (index = (guide.size()-1)) {depletion = true;}
             
         }
-        depletion = true;       // 也可以放在if中
+        // depletion = true;       // 也可以放在if中
     }
     // std::lock_guard<std::mutex> lk(is_send_dataInplanning_cv_mtx);
     // is_send_dataInplanning_cv.notify_one();

@@ -190,10 +190,12 @@ std::vector<vec3d> segmentVector(const vec3d& start, const vec3d& end, double l,
 
 void AlgorithmMng::Pos_estimator(void){
 
-   pos_predict.x = virtual_posi.x + (velocity.x * solution_time);
-   pos_predict.y = virtual_posi.y + (velocity.y * solution_time);
-   pos_predict.z = virtual_posi.z + (velocity.z * solution_time);
-    
+//    pos_predict.x = virtual_posi.x + (velocity.x * solution_time);
+//    pos_predict.y = virtual_posi.y + (velocity.y * solution_time);
+//    pos_predict.z = virtual_posi.z + (velocity.z * solution_time);
+   pos_predict.x = virtual_posi.x;
+   pos_predict.y = virtual_posi.y;
+   pos_predict.z = virtual_posi.z;
 //    pos_predict.x = virtual_posi.x + (velocity.x * (solution_time + sleep_seconds));       // 速度 * 0.5s后的时间 = 预测位置 (这么做肯定不精准)
 //    pos_predict.y = virtual_posi.y + (velocity.y * (solution_time + sleep_seconds));
 //    pos_predict.z = virtual_posi.z + (velocity.z * (solution_time + sleep_seconds));
@@ -277,7 +279,7 @@ void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失�
             set3d target = queue.invoking(0/*frame*/, (ID));                                                    // 获取目标当前位置 0 就表示最新的目标位置
             // printf("target_xyz: %f:%f:%f\n", target.x,target.y,target.z);
             auto vector_seg = segmentVector(position, SET3D_TO_VEC3D(target), limit.constraint_speed, endpoint_distance);          // 向量分段 <vec3d> vector_seg (包含0位置)
-            if(endpoint_distance < end_switch_dis){continue;}                                                   // 立即跳出切换至舞步
+            // if(endpoint_distance < end_switch_dis){continue;}                                                   // 立即跳出切换至舞步
             // printf("vector_seg_xyz: %f:%f:%f\n", vector_seg[1].x,vector_seg[1].y,vector_seg[1].z);
             vec3d increment = vector_seg[1] - position;                                                         // TODO 这里可以再把局部放远一点了 取单次局部规划长度 <vec3d> increment  (往后看一个点) 
             Mint guide_target = QUANTIZATION_MAPPING_3D(increment);                                             // 输入一个 vec3d的数据 量化映射到 <Mint> x y z
@@ -395,7 +397,7 @@ void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失�
         }
         else                                            /** 末端制导阶段*/
         {   
-            if (is_send_dataInplanning == true && depletion == true/*单次规划耗尽*/){        // kill 上一个状态机发送业务线程
+            if (is_send_dataInplanning == true /*&& depletion == true/*单次规划耗尽*/){        // kill 上一个状态机发送业务线程
                 is_send_dataInplanning = false;
                 non_return_state_machine = true;
                 // std::unique_lock<std::mutex> lk(is_send_dataInplanning_cv_mtx);
@@ -404,7 +406,8 @@ void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失�
                 // pthread_join(&send_dataInplanning, nullptr);
             }
             
-            else if (non_return_state_machine == true){
+            // else if (non_return_state_machine == true){
+            // else (non_return_state_machine == true){
             set3d target = queue.invoking( moment.frame, (ID-1));
             singleSend_msg.pos[0] = static_cast<float> (target.x);
             singleSend_msg.pos[1] = static_cast<float> (target.y);
@@ -415,9 +418,9 @@ void AlgorithmMng::planning(CircularQueue& queue/*轨迹表*/, int& ID/*丢失�
             printf("Endpoint px:%f ,py:%f ,pz:%f\n", singleSend_msg.pos[0], singleSend_msg.pos[1], singleSend_msg.pos[2]);
             std::this_thread::sleep_for(std::chrono::milliseconds(33));         // 动态休眠以降低CPU开销
             // TODO 通过cycbuffer耗尽来旋转break循环    
-            }
+            // }
 
-            else{std::this_thread::sleep_for(std::chrono::milliseconds(33));} // 等待depletion置位 把上次规划的路线跑完
+            // else{std::this_thread::sleep_for(std::chrono::milliseconds(33));} // 等待depletion置位 把上次规划的路线跑完
         }
 
         // step3 计算欧氏距离,大致预测到达时间
