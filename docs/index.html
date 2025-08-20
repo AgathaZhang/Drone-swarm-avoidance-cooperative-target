@@ -1,0 +1,97 @@
+<!-- <!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Drone Swarm Testlog</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 24px; background: #f9f9f9; }
+  h1 { color:#FF5733; }
+  h2 { color:#2E86C1; margin-top: 32px; }
+  video { width: 100%; max-width: 960px; border-radius: 12px; margin-top: 16px; }
+  .card { margin: 16px auto; padding: 16px; max-width: 980px;
+          background: white; border-radius: 12px;
+          box-shadow: 0 2px 12px rgba(0,0,0,.08); }
+</style>
+
+<body>
+  <div class="card">
+    <h1>🎥 小批量三架次同时路径规划测试</h1>
+    <video src="testlog/three_drone_test.mp4"
+           controls autoplay muted loop playsinline>
+      您的浏览器不支持 video 标签。
+    </video>
+  </div>
+
+  <div class="card">
+    <h2>🎥 改进算法后的大批量无人机集群测试</h2>
+    <video src="testlog/group_drone_test.mp4"
+           controls autoplay muted loop playsinline>
+      您的浏览器不支持 video 标签。
+    </video>
+  </div>
+</body>
+</html> -->
+
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Drone Swarm Testlog</title>
+<style>
+  body {
+    font-family: system-ui, sans-serif;
+    margin: 24px;
+    background: #f9f9f9;
+  }
+  h1, h2 {
+    font-size: 24px;
+    font-weight: 600;
+    color: #333333; /* 统一为庄重深灰色 */
+    margin-bottom: 12px;
+  }
+  video {
+    width: 100%;
+    max-width: 960px;
+    border-radius: 12px;
+    margin-top: 16px;
+  }
+  .card {
+    margin: 16px auto;
+    padding: 16px;
+    max-width: 980px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.08);
+  }
+  .desc {
+    font-size: 14px;
+    color: #555;
+    margin-top: 8px;
+    line-height: 1.5;
+  }
+</style>
+
+<body>
+  <div class="card">
+    <h1>🎥 小批量三架次同时路径规划测试</h1>
+    <video src="testlog/three_drone_test.mp4"
+           controls autoplay muted loop playsinline>
+      您的浏览器不支持 video 标签。
+    </video>
+    <p class="desc">
+      本测试使用 27 架次无人机，作为一个立方体高速旋转，外层飞机线速度达到 4m+/s。
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>🎥 改进算法后的大批量无人机集群测试</h2>
+    <video src="testlog/group_drone_test.mp4"
+           controls autoplay muted loop playsinline>
+      您的浏览器不支持 video 标签。
+    </video>
+    <p class="desc">
+      本次测试在无人机基地进行，采用 500+ 架无人机组成平面图案，验证编队再入的路径规划能力。
+    </p>
+  </div>
+</body>
+</html>
