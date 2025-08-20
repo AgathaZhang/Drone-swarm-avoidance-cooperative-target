@@ -20,19 +20,6 @@
 
 ## <span style="color:#6B2E2E">❖ 算法历程</span>  
 
-<video
-  src="https://agathazhang.github.io/Drone-swarm-avoidance-cooperative-target/testlog/three_drone_test.mp4"
-  type="video/mp4"
-  width="720"
-  controls
-  playsinline
-  preload="metadata">
-  您的浏览器不支持 video 标签。可直接下载：
-  <a href="https://agathazhang.github.io/Drone-swarm-avoidance-cooperative-target/testlog/three_drone_test.mp4">
-    three_drone_test.mp4
-  </a>
-</video>
-
 <p align="center">
   <img src="https://agathazhang.github.io/Drone-swarm-avoidance-cooperative-target/testlog/picture1.jpg" width="720" alt="局部3D A-STAR路径规划示意">
   <br><sub>局部3D A*路径搜索示意</sub>
@@ -46,20 +33,7 @@
 
 ---
 
-<video
-  src="https://agathazhang.github.io/Drone-swarm-avoidance-cooperative-target/testlog/group_drone_test.mp4"
-  type="video/mp4"
-  width="720"
-  controls
-  playsinline
-  preload="metadata">
-  您的浏览器不支持 video 标签。可直接下载：
-  <a href="https://agathazhang.github.io/Drone-swarm-avoidance-cooperative-target/testlog/group_drone_test.mp4">
-    group_drone_test.mp4
-  </a>
-</video>
-
-**一些解释**：  
+**一些过程**：  
 - 体素扩增预览图 && 单架次全局路径图：  
 <table align="center">
   <tr>
